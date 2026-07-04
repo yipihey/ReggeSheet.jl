@@ -14,6 +14,8 @@ include("lattice.jl")
 include("complex.jl")
 include("deficit.jl")
 include("background.jl")
+include("edges.jl")
+include("step.jl")
 
 # geometry primitives
 export minkowski_sq, edge_sq, cm_volume_sq, tri_area_sq, tet_volume_sq, pent_volume_sq
@@ -27,5 +29,8 @@ export n_spatial, build_pentachora, build_pentachora_stack, hinge_incidence
 export hinge_ring, hinge_deficit, pent_D
 # homogeneous FLRW (gate #1)
 export FLRWModel, flrw_step, flrw_march, spatial_constraint, build_class_equations, class_residual
+# general per-edge machinery (M2+)
+export EdgeComplex, edge_kind, state_esq, compute_deficits!, edge_residual
+export TentBlocks, sweep_slab!, solve_slab!
 
 end # module

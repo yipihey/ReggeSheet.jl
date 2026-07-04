@@ -89,7 +89,10 @@ end
     if abs(nn) * abs(c) < 100 * eps(one(T)) * max(b^2, one(T)) && abs(b) > 0
         t = -c / (2b)                                      # near-degenerate conic: linear root
     else
-        disc = sqrt(max(b^2 - nn * c, zero(T)))
+        disc2 = b^2 - nn * c
+        # value-branch (NOT max-clamp): sqrt(max(u,0)) has NaN ForwardDiff partials at the clamp;
+        # nondegenerate wedges have disc2 > 0 strictly.
+        disc = disc2 > 0 ? sqrt(disc2) : zero(T)
         t1 = nn == 0 ? -c / (2b) : (-b + disc) / nn
         t2 = nn == 0 ? t1 : (-b - disc) / nn
         # pick the root giving positive orientation det[w,w'] = dw0 + t·dwn > 0
@@ -116,7 +119,12 @@ function hinge_deficit(h::NTuple{3,Int}, ring, esq, pents::Vector{NTuple{5,Int}}
     T = typeof(invs[1][1])
     lorentzian = any(a < 0 || c < 0 || (a * c - b^2) < 0 for (a, b, c) in invs)
     if !lorentzian
-        Σ = sum(acos(clamp(b / sqrt(a * c), -one(T), one(T))) for (a, b, c) in invs)
+        # θ = atan(√gram, β): smooth in the wedge data (acos(clamp(·)) has Inf/NaN ForwardDiff
+        # partials at |cos| → 1); gram = αγ−β² > 0 strictly for nondegenerate Euclid wedges.
+        Σ = sum(invs) do (a, b, c)
+            g = a * c - b^2
+            atan(g > 0 ? sqrt(g) : zero(T), b)
+        end
         return (2T(π) - Σ, :euclid, abs(2T(π) - Σ))
     end
     pl = -one(T)                                          # ⟂ plane metric diag(−1,+1)

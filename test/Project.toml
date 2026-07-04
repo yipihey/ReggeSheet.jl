@@ -2,6 +2,7 @@
 # ReggeSheet resolves from the path directly. No DiscoDJNative: gates #1/#2 are pure-core.
 [deps]
 ReggeSheet = "d21eda78-1ddd-4fce-aafb-779fc59bce21"
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

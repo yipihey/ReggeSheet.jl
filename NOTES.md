@@ -82,6 +82,45 @@ Honest record: what was chosen, what was measured, what broke and how.
    is ill-conditioned there; the gate keeps crossing-free parameters, and the 3D solver should
    log a near-null diagnostic).
 
+## M2 progress: the general engine, its precision law, and the shift-gauge discovery
+
+Built (`edges.jl`, `step.jl`): the general per-edge machinery — canonical edge enumeration from
+the pentachora (NO offset-pattern assumptions: the sorted staircase makes diagonal patterns vary
+near the periodic wrap, vertices own 0–14 diagonals), per-edge equation tables, a per-sweep global
+deficit cache, and two slab solvers (per-vertex Schwarz sweeps + a global damped Gauss–Newton).
+**Cross-validation**: filling the window with a converged FLRW slab pair, every complete edge
+equation vanishes to state-quantization precision (~1e-16) across ALL vertices — the general
+assembly reproduces gate #1's physics exactly.
+
+Findings (each measured, in order of discovery):
+1. **Boost deficits are uncomputable in Float64 in the weak-field regime** — each wedge rapidity
+   is O(|ln lna_step|) ≈ 6–10 and the deficit is their ~1e-8-relative cancellation; SO(1,1) is
+   abelian so NO reformulation avoids the sum (measured Float64 errors O(10) on ε ~ 1e-7!).
+   All solvers run their geometry in Double64. This is a fundamental precision law of Lorentzian
+   Regge in cosmology, not an implementation artifact.
+2. **ForwardDiff NaN traps**: `sqrt(max(u,0))` and `acos(clamp(c,±1))` have NaN/Inf partials at
+   the clamp; fixed by value-branches (`u > 0 ? sqrt(u) : 0`) and `atan(√gram, β)` for wedge
+   angles.
+3. **Parallel-block race**: color classes must separate blocks on the UNION of unknown-touched
+   hinges and equation hinges (equation residuals READ edges others WRITE; Double64 is 128-bit ⇒
+   torn reads).
+4. **Per-vertex splittings diverge**: the equations are stiff (∂ε/∂l² ~ η/l²) and strongly
+   cross-coupled; disjoint-ownership Gauss–Seidel AND overlapping Schwarz blocks both oscillate at
+   O(1) residuals. The global damped Gauss–Newton converges (O(10) → 1e-3, LM-damped).
+5. **THE SHIFT FREEDOM IS UNFIXED** — the big one. With only the lapse pinned (poles = −dτ²), the
+   slab system retains ~3 gauge modes/vertex (tangential placement of each new vertex): the global
+   GN reduces residuals while the state slides along gauge directions AWAY from the FLRW
+   representative (recovery "error" 0.44 with residuals improving — different gauge representative
+   of the same geometry, per-edge comparisons are NOT gauge-invariant). Consequences for M2/M3:
+   * gauge-fix the shift: 3 conditions/vertex; the natural zero-shift (synchronous-comoving)
+     condition in edge-length variables is d(v,u) = pole(v) + sp1(v,u) + O(curvature) — exactly
+     the pattern of the FLRW seeds (the ansatz silently picked this gauge); OR
+   * compare gauge-INVARIANT observables (per-tet volumes/densities per Lagrangian mass element —
+     the AHK sheet-density view).
+   * For gate #2 the pragmatic path is the 1D-reduced (per-column classes) solve — the reduction
+     picks the symmetric gauge representative implicitly, exactly as the FLRW ansatz did — with
+     the general 3D machinery + explicit shift gauge-fixing as the M3 follow-on.
+
 ## Gate status
 
 - **Gate #1 (EdS a(t) < 1e-6): PASSED.** Crossing-free convergence sweep (diagonals uniformly
