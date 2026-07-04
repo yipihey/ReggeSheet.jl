@@ -135,37 +135,22 @@ function _block_residual(ec::EdgeComplex, tb::TentBlocks, v::Int, L::AbstractVec
 end
 
 """
-    solve_slab!(L, ec, tb; κ, conv, dust_pole, tol, maxit=25, verbose=false) -> max residual
+    solve_edges!(L, ec; unknowns, equations, dust_of, κ, conv, tol, ...) -> max residual
 
-GLOBAL damped Gauss–Newton for the whole slab: all slab-B unknowns solved together against all
-complete {sp1, dgB, poleB} equations. The per-vertex Gauss–Seidel/Schwarz splitting DIVERGES here:
-the equations are stiff (∂ε/∂l² ~ η/l², with O(|ln lna|) rapidities) and strongly cross-coupled,
-so local block updates overshoot; the global Newton converges quadratically. The Jacobian is
-assembled per-equation from LOCAL duals (an equation depends only on the edges of its hinges),
-threaded, so assembly is O(#eqs · local-size), never global-dense differentiation.
+The general LM Gauss–Newton core: solve the Regge equations of `equations` (edge ids) for the
+`unknowns` (edge ids), everything else frozen. `dust_of(e)` returns the matter term for edge e
+(m/(2τ) for pole edges, 0 otherwise). Geometry in Double64 (the boost-deficit precision law).
+The per-vertex Gauss–Seidel/Schwarz splittings DIVERGE on these stiff, strongly cross-coupled
+equations (∂ε/∂l² ~ η/l²); the global Newton converges. The Jacobian is assembled per-equation
+from LOCAL duals over the equation's ring-edge support, threaded.
 """
-function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
-                     κ, conv, dust_pole, tol::Float64, maxit::Int=25, verbose::Bool=false,
-                     pinned::Vector{Int}=Int[], soft_gauge::Bool=true, wgauge::Float64=1e-3)
+function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
+                      unknowns::Vector{Int}, equations::Vector{Int}, dust_of,
+                      κ, conv, tol::Float64, maxit::Int=25, verbose::Bool=false)
     D = Double64
-    pinset = soft_gauge ? Set{Int}() : Set(pinned)
-    # SOFT gauge (default): the shift-gauge edges STAY unknowns; their gauge conditions
-    # (L[e] = caller-seeded pin value) enter as weighted least-squares rows that steer the
-    # near-null shift space. HARD pinning (soft_gauge=false) excludes them — but the discrete
-    # Bianchi identities are only approximate, so hard pins make successive windows exactly
-    # unsolvable (measured: sp1 floors growing ×1e3/step). Soft gauge never conflicts with the
-    # physics equations.
-    gauge_edges = soft_gauge ? pinned : Int[]
-    gauge_vals = Float64[L[e] for e in gauge_edges]
-    U = Int[]
-    for v in eachindex(tb.unknowns)
-        append!(U, tb.unknowns[v])
-    end
-    sort!(U)
-    filter!(e -> !(e in pinset), U)
+    U = sort(unknowns)
     uidx = Dict{Int,Int}(e => i for (i, e) in enumerate(U))
-    E = [e for e in eachindex(ec.edges)
-         if ec.complete[e] && ec.kind[e] in (:sp1, :dgB, :poleB) && !(e in pinset)]
+    E = equations
     # per-equation unknown support: eq e depends on the RING edges of its hinges (a deficit is a
     # function of ALL edges of its ring pentachora, not just the hinge triangle) ∩ unknowns.
     uset = Set(U)
@@ -193,8 +178,7 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
         # residuals (cheap, cached deficits)
         Threads.@threads :static for k in 1:ne
             e = E[k]
-            de = ec.kind[e] === :poleB ? D(dust_pole) : zero(D)
-            r[k] = edge_residual(ec, e, LD, ε, kindc, κ, conv; dust=de)
+            r[k] = edge_residual(ec, e, LD, ε, kindc, κ, conv; dust=D(dust_of(e)))
         end
         maxr = Float64(maximum(abs, r))
         verbose && println("  GN it $it: max|r| = $maxr")
@@ -205,7 +189,7 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
             e = E[k]
             S = support[k]
             isempty(S) && continue
-            de = ec.kind[e] === :poleB ? D(dust_pole) : zero(D)
+            de = D(dust_of(e))
             f = xx -> begin
                 T = eltype(xx)
                 ov = Dict{Int,T}(S[i] => xx[i] for i in eachindex(S))
@@ -232,15 +216,6 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
         JtJ = transpose(J) * J
         dmax = maximum(i -> JtJ[i, i], 1:nu)
         Jtr = transpose(J) * r
-        # soft gauge rows: w²·(x_g − pin) steering the shift null space (scaled to the physics rows)
-        if soft_gauge && !isempty(gauge_edges)
-            wg2 = D(wgauge)^2 * dmax
-            for (gi, ge) in enumerate(gauge_edges)
-                i = uidx[ge]
-                JtJ[i, i] += wg2
-                Jtr[i] += wg2 * (LD[ge] - D(gauge_vals[gi]))
-            end
-        end
         λ = D(lm_λ) * dmax
         accepted = false
         for _ in 1:12
@@ -253,8 +228,8 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
             rt = 0.0
             for k in 1:ne
                 e = E[k]
-                de = ec.kind[e] === :poleB ? D(dust_pole) : zero(D)
-                rt = max(rt, Float64(abs(edge_residual(ec, e, Lt, ε, kindc, κ, conv; dust=de))))
+                rt = max(rt, Float64(abs(edge_residual(ec, e, Lt, ε, kindc, κ, conv;
+                                                       dust=D(dust_of(e))))))
             end
             if rt < maxr
                 LD = Lt
@@ -271,6 +246,78 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
         L[i] = Float64(LD[i])
     end
     return maxr
+end
+
+"""
+    solve_slab!(L, ec; κ, conv, dust_pole, tol, pins, ...) -> (maxr, constraints)
+
+The SORKIN-SPLIT evolution step (the square, integrable scheme):
+  solve  {unpinned dgB eqs (4/vtx) + sp1 eqs (7/vtx)}  for  {unpinned dgB + sp2} (11/vtx),
+with gauge pins EXCLUDED as unknowns (poleB := −dτ² lapse; 3 axis dgB := shift — caller sets
+their values in L). The pole equation is NEVER solved: comoving dust has T_ij = 0, so the
+spatial/diagonal equations are dust-free and the pole equation is the (dust-sourced) Hamiltonian
+constraint — returned in `constraints = (ham, mom)` as the monitored drift, alongside the pinned
+diagonals' (momentum-like) residuals. Solving it too over-determines the system by 1/vertex and
+the approximate discrete Bianchi identities amplify the inconsistency ×1e3/step (measured).
+"""
+function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
+                     κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
+                     maxit::Int=25, verbose::Bool=false)
+    pinset = Set(pins)
+    U = [e for e in eachindex(ec.edges)
+         if (ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp2]
+    E = [e for e in eachindex(ec.edges)
+         if ec.complete[e] &&
+            ((ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp1)]
+    dust_of = e -> 0.0                                    # solved set is dust-free (T_ij = 0)
+    maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
+                        κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose)
+    # monitored constraints: Hamiltonian (poleB eqs, WITH dust) + momentum (pinned dgB eqs)
+    LD = Double64.(L)
+    ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
+    compute_deficits!(ε, kc, ec, LD)
+    ham = 0.0; mom = 0.0
+    for e in eachindex(ec.edges)
+        ec.complete[e] || continue
+        if ec.kind[e] === :poleB
+            ham = max(ham, Float64(abs(edge_residual(ec, e, LD, ε, kc, κ, conv;
+                                                     dust=Double64(dust_pole)))))
+        elseif e in pinset
+            mom = max(mom, Float64(abs(edge_residual(ec, e, LD, ε, kc, κ, conv))))
+        end
+    end
+    return maxr, (ham=ham, mom=mom)
+end
+
+"""
+    initial_slab_solve!(L, ec; κ, conv, dust_pole, tol, pins, ...) -> (maxr, ham)
+
+The DISCRETE INITIAL-DATA solve: given slice-0 and slice-1 (intrinsic geometry at two times —
+they encode the expansion rate) and poleA pinned to −dτ², solve the slab-A diagonal equations
+{unpinned dgA eqs} for the {unpinned dgA} diagonals (square, 4/vertex), with the 3 axis dgA per
+vertex gauge-pinned by the caller. Returns the max solved residual and the Hamiltonian residual
+(poleA eqs WITH dust) — the latter measures the consistency of the (slice0, slice1, dτ) triplet
+and is the true initial constraint violation.
+"""
+function initial_slab_solve!(L::Vector{Float64}, ec::EdgeComplex;
+                             κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
+                             maxit::Int=25, verbose::Bool=false)
+    pinset = Set(pins)
+    U = [e for e in eachindex(ec.edges) if ec.kind[e] === :dgA && !(e in pinset)]
+    E = copy(U)                                           # square: each unpinned dgA's own eq
+    dust_of = e -> 0.0
+    maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
+                        κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose)
+    LD = Double64.(L)
+    ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
+    compute_deficits!(ε, kc, ec, LD)
+    ham = 0.0
+    for e in eachindex(ec.edges)
+        (ec.complete[e] && ec.kind[e] === :poleA) || continue
+        ham = max(ham, Float64(abs(edge_residual(ec, e, LD, ε, kc, κ, conv;
+                                                 dust=Double64(dust_pole)))))
+    end
+    return maxr, ham
 end
 
 """

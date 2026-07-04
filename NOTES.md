@@ -162,6 +162,25 @@ Findings (each measured, in order of discovery):
    the Sorkin split (defer slab-internal {poleB,dgB} to the next window, solve {poleA,dgA,sp1}
    there — dust then enters via poleA). If (b): seed slab A by solving a proper initial-data
    problem instead of midpoint chords.
+   [RESOLVED: BOTH. See 10.]
+10. **Initial-data solve + Sorkin split ⇒ integrable; the remaining enemy is the free-evolution
+    constraint instability.** Implemented (`solve_edges!` core, `solve_slab!` Sorkin split,
+    `initial_slab_solve!`):
+    * evolution solves the DUST-FREE square set {unpinned-dgB eqs + sp1 eqs} (11/vtx) for
+      {unpinned dgB + sp2} (11/vtx) — comoving dust has T_ij = 0, so the pole equation is the
+      dust-sourced Hamiltonian CONSTRAINT, monitored not solved (solving it too = the old
+      over-determination, amplified ×1e3/step by approximate Bianchi);
+    * initial data solves the unpinned dgA equations for the unpinned dgA diagonals given the two
+      analytic slices (which encode ȧ); the poleA residual measures (slice0, slice1, dτ)
+      consistency — measured 8e-14 ✓ the analytic slices are consistent, my old midpoint-chord
+      diagonals were the off-shell part.
+    RESULT (A=0): initial data to 4.6e-19; steps 1–3 clean (errors 1e-16 → 2e-9 → 1.3e-7,
+    Bianchi ~1e-11); then an EXPONENTIALLY growing constraint-violating mode (×50–10³/step) blows
+    the march at fixed ELAPSED Δlna ≈ 2–3e-2 regardless of step size — the classic free-evolution
+    instability of NR (gate #1's homogeneous symmetry excluded these modes; the general engine
+    admits them). NEXT: constrained evolution — add the Hamiltonian (poleB, with dust) +
+    momentum (pinned-dgB) equations as WEIGHTED least-squares rows in solve_slab! (constraint
+    damping, Z4-style in spirit); the LSQ machinery makes this a small edit.
 
 ## Gate status
 

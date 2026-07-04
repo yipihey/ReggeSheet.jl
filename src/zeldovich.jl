@@ -89,14 +89,15 @@ function window_shift_map(ec::EdgeComplex)
 end
 
 """
-    gauge_pins(ec) -> Vector{Int}  — the slab-B axis-offset (|Δq|²=1) diagonals (3 per vertex).
+    gauge_pins(ec; kind=:dgB) -> Vector{Int}  — axis-offset (|Δq|²=1) diagonals (3/vertex) of the
+requested slab (`:dgB` for evolution, `:dgA` for the initial-data solve).
 """
-function gauge_pins(ec::EdgeComplex)
+function gauge_pins(ec::EdgeComplex; kind::Symbol=:dgB)
     ns = ec.ns; N = ec.N
     mi(d) = (d = mod(d, N); d > N ÷ 2 ? d - N : d)
     pins = Int[]
     for (e, (v, w)) in enumerate(ec.edges)
-        ec.kind[e] === :dgB || continue
+        ec.kind[e] === kind || continue
         pv = mod(v - 1, ns); pw = mod(w - 1, ns)
         di = mi(pw % N - pv % N); dj = mi((pw ÷ N) % N - (pv ÷ N) % N)
         dk = mi(pw ÷ (N * N) - pv ÷ (N * N))
@@ -130,8 +131,8 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
                          A::Float64, k::Float64, lna_step::Float64=3e-3,
                          ρ0::Float64=3 / (8π), anorm::Float64=1.0, verbose::Bool=false)
     ec = EdgeComplex(N)
-    tb = TentBlocks(ec)
-    pins = gauge_pins(ec)
+    pins = gauge_pins(ec)                                 # slab-B shift pins (evolution)
+    pinsA = gauge_pins(ec; kind=:dgA)                     # slab-A shift pins (initial data)
     shiftmap = window_shift_map(ec)
     m = ρ0 * dx^3
     ns = ec.ns
@@ -146,6 +147,13 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
 
     L = zeros(Float64, length(ec.edges))
     zel_seed_window!(L, ec, dx, a0, a1, dτ; A=A, k=k, anorm=anorm)
+    # DISCRETE INITIAL DATA: the analytic midpoint-chord slab-A seed is O(dτ³) OFF-SHELL and
+    # makes the second window exactly unsolvable (measured). Solve the unpinned dgA equations for
+    # the unpinned dgA diagonals (axis dgA keep their analytic values = the comoving-gauge choice);
+    # the poleA (Hamiltonian, dust-sourced) residual measures the (slice0, slice1, dτ) consistency.
+    r0, ham0 = initial_slab_solve!(L, ec; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
+                                   dust_pole=m / (2dτ), tol=1e-16, pins=pinsA)
+    verbose && @printf("initial data: |r|=%.2e  ham=%.2e\n", r0, ham0)
 
     # per-edge analytic reference for slice 2 (recomputed each step)
     qco(v) = begin
@@ -180,18 +188,11 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
             (ec.kind[e] === :dgB && !(e in Set(pins))) || continue
             L[e] = -dτB^2 + L[_diag_sp1_partner(ec, e)]
         end
-        # ---- solve ----
+        # ---- solve (Sorkin split: dust-free {dgB-unpinned + sp1}; constraints monitored) ----
         dust = m / (2dτB)
-        maxr = solve_slab!(L, ec, tb; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
-                           dust_pole=dust, tol=1e-5 * dust, verbose=false, pinned=pins)
-        # Bianchi check: residuals of the PINNED edges' equations
-        LD = Double64.(L)
-        ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
-        compute_deficits!(ε, kc, ec, LD)
-        bianchi = maximum(pins) do e
-            Float64(abs(edge_residual(ec, e, LD, ε, kc, 1 / (8π),
-                                      (s_boost=1.0, s_euclid=1.0))))
-        end
+        maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
+                                 dust_pole=dust, tol=1e-5 * dust, verbose=false, pins=pins)
+        bianchi = max(cons.ham, cons.mom)
         # ---- measure slice 2 vs analytic ----
         err_x = 0.0; err_perp = 0.0
         for (e, (v, w)) in enumerate(ec.edges)

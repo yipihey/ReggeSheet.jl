@@ -32,7 +32,7 @@ export hinge_ring, hinge_deficit, pent_D
 export FLRWModel, flrw_step, flrw_march, spatial_constraint, build_class_equations, class_residual
 # general per-edge machinery (M2+)
 export EdgeComplex, edge_kind, state_esq, compute_deficits!, edge_residual
-export TentBlocks, sweep_slab!, solve_slab!
+export TentBlocks, sweep_slab!, solve_slab!, solve_edges!, initial_slab_solve!
 export zel_spatial_lsq, zel_seed_window!, window_shift_map, gauge_pins, march_zeldovich
 
 end # module
