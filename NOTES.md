@@ -246,7 +246,19 @@ Findings (each measured, in order of discovery):
   | max constraint (Ham+mom)          | 9.3e-7  | < 1e-5 |
   | stability (no exponential growth) | linear-in-steps | ✓ |
 
-  Error budget (measured): the deviation from the continuum solution is ≈0.7–0.9% of the wave
+  **M3 resolution study (three verdicts, all measured):**
+  1. GAUGE-DRIFT REFUTED: phase-aligning the lattice x-profile against the analytic wave gives
+     φ = 0 exactly and aligned ≡ raw at BOTH N=3 and N=4 — the deviation is a genuine SHAPE
+     deviation of the discrete wave, not a coordinate/pin drift.
+  2. The "N=4 anomaly" inverted: the error SATURATES with N (err_x at 12 steps, D·A=0.2:
+     N=3: 1.34e-3, N=4: 3.51e-3, N=5: 4.11e-3 — +162% then +17%) — N=3 was anomalously GOOD
+     (Z₃-symmetric wave), N≥4 approaches the generic envelope ≈1% of the wave per 12 steps.
+  3. Portrait of the deviation: linear-in-steps, ∝ D·A, dτ-weak (per-step ∝ dτ^~0.5 at fixed
+     CFL), wd-independent (not dissipation bias), φ=0 (not gauge). Next scaling axis — the one
+     the M4 harness lives in — is kdx ≪ 1 (well-resolved modes): N=8 (kdx=0.79) via the sparse
+     solver, N=12 (kdx=0.52) overnight.
+
+  Error budget (original gate-2 measurements): the deviation from the continuum solution is ≈0.7–0.9% of the wave
   amplitude, INDEPENDENT of dτ (CFL 0.4 vs 0.2 at matched Δlna: 1.21e-4 vs 1.69e-4 at A=1) and
   ∝ D·A (A=1: 1.7e-4; A=10: 1.34e-3). **CORRECTION (the N=4 measurement contradicts the naive
   (kdx)² story)**: N=4/kdx=1.57 gives err_x = 3.5e-3 — 2.6× LARGER than N=3, not the 0.56×
