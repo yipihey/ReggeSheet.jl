@@ -117,7 +117,13 @@ function hinge_deficit(h::NTuple{3,Int}, ring, esq, pents::Vector{NTuple{5,Int}}
         wedge_invariants(pent_D(p, esq), ia, ib)
     end
     T = typeof(invs[1][1])
-    lorentzian = any(a < 0 || c < 0 || (a * c - b^2) < 0 for (a, b, c) in invs)
+    # Classify the ⟂ plane by the HINGE TRIANGLE's causal character (global, robust): a space-like
+    # triangle (A² > 0) has a Lorentzian ⟂ plane; a time-containing one (A² < 0) has a Euclidean
+    # ⟂ plane. (The earlier per-wedge `any(...)` classification is fragile exactly at the
+    # boundary: one wedge's Gram det crossing zero under a perturbation misclassifies the whole
+    # ring and runs the wrong branch — NaN traps.)
+    a12 = esq(h[1], h[2]); a13 = esq(h[1], h[3]); a23 = esq(h[2], h[3])
+    lorentzian = tri_area_sq(a12, a13, a23) > 0
     if !lorentzian
         # θ = atan(√gram, β): smooth in the wedge data (acos(clamp(·)) has Inf/NaN ForwardDiff
         # partials at |cos| → 1); gram = αγ−β² > 0 strictly for nondegenerate Euclid wedges.

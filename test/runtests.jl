@@ -24,7 +24,11 @@ end
         global GATE1_LNA_STEP = 3e-3
         include("test_background.jl")
     end
-    # GATE #2 (Zel'dovich) is added in M2:  include("test_zeldovich.jl")
+    # GATE #2 (test_zeldovich.jl): NOT yet enabled — the march is blocked by a parasitic root of
+    # the two-slab recurrence (|λ_p|≈3/step; NOTES.md #11a); Kreiss–Oliger-style dissipation is
+    # the next lever. Machinery validated so far: York initial data (ham → 2.4e-17), CFL regime,
+    # constraint damping, first-step wave + emergent plane symmetry.
+    # global GATE2_STEPS = 60; include("test_zeldovich.jl")
     if ad_ok
         @testset "differentiability (ForwardDiff)" begin
             include("test_ad.jl")

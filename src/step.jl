@@ -146,11 +146,19 @@ from LOCAL duals over the equation's ring-edge support, threaded.
 """
 function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                       unknowns::Vector{Int}, equations::Vector{Int}, dust_of,
-                      κ, conv, tol::Float64, maxit::Int=25, verbose::Bool=false)
+                      κ, conv, tol::Float64, maxit::Int=25, verbose::Bool=false,
+                      soft_equations::Vector{Int}=Int[], soft_weight::Float64=1.0)
     D = Double64
     U = sort(unknowns)
     uidx = Dict{Int,Int}(e => i for (i, e) in enumerate(U))
-    E = equations
+    # CONSTRAINT DAMPING: `soft_equations` (the Hamiltonian/momentum constraints) join the
+    # least-squares system with weight `soft_weight`. Free evolution of the hard (square) set
+    # alone admits an exponentially growing constraint-violating mode (measured ×50–1e3/step);
+    # the weighted rows pull the trajectory back onto the constraint surface each step. With an
+    # on-shell past the combined minimum sits at the (tiny) approximate-Bianchi floor.
+    nh = length(equations)
+    E = vcat(equations, soft_equations)
+    wrow = vcat(ones(D, nh), fill(D(soft_weight), length(soft_equations)))
     # per-equation unknown support: eq e depends on the RING edges of its hinges (a deficit is a
     # function of ALL edges of its ring pentachora, not just the hinge triangle) ∩ unknowns.
     uset = Set(U)
@@ -175,14 +183,18 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
     lm_λ = 1e-10                                             # LM damping (relative), adaptive
     for it in 1:maxit
         compute_deficits!(ε, kindc, ec, LD)
-        # residuals (cheap, cached deficits)
+        # residuals (cheap, cached deficits); rows weighted (soft constraints < hard)
         Threads.@threads :static for k in 1:ne
             e = E[k]
-            r[k] = edge_residual(ec, e, LD, ε, kindc, κ, conv; dust=D(dust_of(e)))
+            r[k] = wrow[k] * edge_residual(ec, e, LD, ε, kindc, κ, conv; dust=D(dust_of(e)))
         end
-        maxr = Float64(maximum(abs, r))
-        verbose && println("  GN it $it: max|r| = $maxr")
-        maxr < tol && break
+        maxr = Float64(maximum(abs, view(r, 1:nh)))          # convergence on the HARD rows
+        obj = Float64(maximum(abs, r))
+        verbose && println("  GN it $it: max|r_hard| = $maxr  obj = $obj")
+        # with soft rows present, keep iterating until LM stalls (soft rows have a nonzero
+        # floor and must be given the iterations to pull; hard-only early exit skips them)
+        maxr < tol && isempty(soft_equations) && break
+        maxr < tol && obj < 1e3 * tol && break
         # Jacobian: per-equation local ForwardDiff over its support
         fill!(J, zero(D))
         Threads.@threads :static for k in 1:ne
@@ -206,7 +218,7 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
             end
             g = ForwardDiff.gradient(f, D[LD[s] for s in S])
             for (i, s) in enumerate(S)
-                J[k, uidx[s]] = g[i]
+                J[k, uidx[s]] = wrow[k] * g[i]
             end
         end
         # Levenberg–Marquardt: adaptive damping instead of a line search — the system has a
@@ -228,10 +240,10 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
             rt = 0.0
             for k in 1:ne
                 e = E[k]
-                rt = max(rt, Float64(abs(edge_residual(ec, e, Lt, ε, kindc, κ, conv;
-                                                       dust=D(dust_of(e))))))
+                rt = max(rt, Float64(abs(wrow[k] * edge_residual(ec, e, Lt, ε, kindc, κ, conv;
+                                                                 dust=D(dust_of(e))))))
             end
-            if rt < maxr
+            if rt < obj                                       # LM acceptance on the full objective
                 LD = Lt
                 lm_λ = max(lm_λ / 4, 1e-14)
                 accepted = true
@@ -262,16 +274,20 @@ the approximate discrete Bianchi identities amplify the inconsistency ×1e3/step
 """
 function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
                      κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
-                     maxit::Int=25, verbose::Bool=false)
+                     maxit::Int=25, verbose::Bool=false, wc::Float64=1.0)
     pinset = Set(pins)
     U = [e for e in eachindex(ec.edges)
          if (ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp2]
     E = [e for e in eachindex(ec.edges)
          if ec.complete[e] &&
             ((ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp1)]
-    dust_of = e -> 0.0                                    # solved set is dust-free (T_ij = 0)
+    # constraint-damping rows: Hamiltonian (poleB, dust-sourced) + momentum (pinned dgB), weight wc
+    S = [e for e in eachindex(ec.edges)
+         if ec.complete[e] && (ec.kind[e] === :poleB || (e in pinset))]
+    dust_of = e -> ec.kind[e] === :poleB ? dust_pole : 0.0
     maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
-                        κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose)
+                        κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose,
+                        soft_equations=S, soft_weight=wc)
     # monitored constraints: Hamiltonian (poleB eqs, WITH dust) + momentum (pinned dgB eqs)
     LD = Double64.(L)
     ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
@@ -301,13 +317,27 @@ and is the true initial constraint violation.
 """
 function initial_slab_solve!(L::Vector{Float64}, ec::EdgeComplex;
                              κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
-                             maxit::Int=25, verbose::Bool=false)
+                             maxit::Int=25, verbose::Bool=false, york::Bool=true)
     pinset = Set(pins)
     U = [e for e in eachindex(ec.edges) if ec.kind[e] === :dgA && !(e in pinset)]
     E = copy(U)                                           # square: each unpinned dgA's own eq
-    dust_of = e -> 0.0
-    maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
-                        κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose)
+    dust_of = e -> ec.kind[e] === :poleA ? dust_pole : 0.0
+    if york
+        # DISCRETE YORK PROCEDURE: for inhomogeneous data the analytic chords violate the
+        # Hamiltonian constraint at O((k·dx)²·D·A) (measured 14% of the dust scale at 3 pts per
+        # wavelength) and the violation destabilizes the march. Add the slice-1 spatial edges as
+        # unknowns (a minimal LSQ adjustment of the intrinsic slice geometry) and require the
+        # FULL slab-A equation set: unpinned dgA (hard) + Hamiltonian/momentum as soft rows.
+        append!(U, [e for e in eachindex(ec.edges) if ec.kind[e] === :sp1])
+        S = [e for e in eachindex(ec.edges)
+             if ec.complete[e] && (ec.kind[e] === :poleA || (e in pinset))]
+        maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
+                            κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose,
+                            soft_equations=S, soft_weight=1.0)
+    else
+        maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
+                            κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose)
+    end
     LD = Double64.(L)
     ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
     compute_deficits!(ε, kc, ec, LD)

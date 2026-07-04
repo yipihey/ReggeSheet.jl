@@ -181,6 +181,35 @@ Findings (each measured, in order of discovery):
     admits them). NEXT: constrained evolution — add the Hamiltonian (poleB, with dust) +
     momentum (pinned-dgB) equations as WEIGHTED least-squares rows in solve_slab! (constraint
     damping, Z4-style in spirit); the LSQ machinery makes this a small edit.
+11a. **The residual instability is a PARASITIC ROOT of the two-slab marching recurrence.** With
+    York initial data (see 12) and CFL satisfied, the wave march still grows at ×3–4 PER STEP —
+    independent of dτ (per-step, not per-time gain) AND independent of amplitude (A=10 and A=1
+    grow identically, seeds ∝ A). A linear per-step map amplification |λ_p| ≈ 3 of the two-level
+    (window) recursion — the classic parasitic root of multistep schemes; in hindsight the A=0
+    "stability" matched roundoff seeds growing 2e-16·3^12 ≈ 1e-10 by step 10-12. Constraint
+    damping (wc=1) does NOT remove it (the mode has a constraint-satisfying component); the
+    hard-equation LM stalls at the truncation scale from step ~3 as the mode grows. NEXT LEVER
+    (NR-standard): Kreiss–Oliger-style dissipation as weighted soft rows penalizing the
+    time-oscillating (parasitic) component — e.g. w_d·(sp2 − 2·sp1 + sp0) rows at an amplitude
+    that vanishes at the scheme's accuracy order; alternatively a wider implicit window (solve
+    two slabs jointly) or a dissipative reformulation of the solved set.
+12. **Discrete York initial data WORKS.** Extending `initial_slab_solve!` with the slice-1
+    spatial edges as unknowns and the Hamiltonian+momentum constraints as soft rows drives the
+    initial Hamiltonian residual from 1e-8 (14% of the dust scale — the raw analytic chords at 3
+    pts/wavelength are badly off-constraint at D·A=0.2) to **2.4e-17**. Gotcha: the LM's
+    hard-row-only early exit skipped the soft rows entirely (byte-identical results) — with soft
+    rows the solver must run to LM stall.
+11. **CFL — the instability's true identity (constraint damping alone was not enough).**
+    Constraint-damping rows slowed the constraint growth ~100× but the error growth persisted
+    with per-step gain ~50–250 that WORSENED with larger dτ — a per-step map amplification, not a
+    physical mode. The sp1 equations are hyperbolic (the spatial metric's wave dofs); the
+    slab-by-slab solve is an explicit scheme for them, so stability demands **dτ ≲ a·dx** (the
+    cell light-crossing). We had deliberately run dτ/(a·dx) = 4–14 to keep the staircase
+    diagonals time-like (null avoidance, #4) — but the SPACE-LIKE side of null satisfies both:
+    **dτ = 0.4·a·dx** (the flat-closure test's regime all along). Measured: A=0 march flat at
+    ~1e-10 error / 8e-12 constraints over 10+ steps — STABLE. Note the CFL ratio drifts ∝ √a
+    during a march: long marches must re-grade dτ to hold the CFL number (and stay below the
+    null crossing).
 
 ## Gate status
 
