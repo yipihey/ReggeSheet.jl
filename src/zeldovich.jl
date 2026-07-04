@@ -129,7 +129,8 @@ proper lengths vs analytic, err_perp = same for transverse edges (plane-symmetry
 """
 function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
                          A::Float64, k::Float64, lna_step::Float64=3e-3,
-                         ρ0::Float64=3 / (8π), anorm::Float64=1.0, verbose::Bool=false)
+                         ρ0::Float64=3 / (8π), anorm::Float64=1.0, verbose::Bool=false,
+                         wd::Float64=1.0)
     ec = EdgeComplex(N)
     pins = gauge_pins(ec)                                 # slab-B shift pins (evolution)
     pinsA = gauge_pins(ec; kind=:dgA)                     # slab-A shift pins (initial data)
@@ -188,10 +189,18 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
             (ec.kind[e] === :dgB && !(e in Set(pins))) || continue
             L[e] = -dτB^2 + L[_diag_sp1_partner(ec, e)]
         end
-        # ---- solve (Sorkin split: dust-free {dgB-unpinned + sp1}; constraints monitored) ----
+        # ---- solve (Sorkin split + KO dissipation toward the linear time-extrapolation) ----
         dust = m / (2dτB)
+        diss = Tuple{Int,Float64}[]
+        for (e, (v, w)) in enumerate(ec.edges)
+            ec.kind[e] === :sp2 || continue
+            e1 = ec.eid[(v - ns, w - ns)]
+            e0 = ec.eid[(v - 2ns, w - 2ns)]
+            push!(diss, (e, 2 * L[e1] - L[e0]))           # target = linear extrapolation
+        end
         maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
-                                 dust_pole=dust, tol=1e-5 * dust, verbose=false, pins=pins)
+                                 dust_pole=dust, tol=1e-5 * dust, verbose=false, pins=pins,
+                                 diss=diss, wd=wd)
         bianchi = max(cons.ham, cons.mom)
         # ---- measure slice 2 vs analytic ----
         err_x = 0.0; err_perp = 0.0

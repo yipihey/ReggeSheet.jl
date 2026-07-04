@@ -4,13 +4,15 @@
 using ReggeSheet, Test, Printf
 
 @testset "vacuum: flat static lattice satisfies the Regge equations" begin
+    using DoubleFloats: Double64
     dx = 1e-3
     M0 = FLRWModel(N=3, dx=dx, dτ=1e-5, m=0.0)
     s = dx^2
-    x = [-M0.dτ^2 + s, -M0.dτ^2 + 2s, -M0.dτ^2 + 3s, s]
-    r = ReggeSheet.step_residual(M0, s, M0.dτ, x)
-    # residual scale: κ·dA ~ O(dx/dτ); flat must satisfy to roundoff of that scale
-    @test maximum(abs, r) < 1e-12
+    # Double64 inputs: boost deficits are Float64-garbage at these scale ratios (the boost
+    # precision law, NOTES.md M2 #1) — the equations themselves are fine.
+    x = Double64[-M0.dτ^2 + s, -M0.dτ^2 + 2s, -M0.dτ^2 + 3s, s]
+    r = ReggeSheet.step_residual(M0, Double64(s), Double64(M0.dτ), x)
+    @test maximum(abs, Float64.(r)) < 1e-12
 end
 
 @testset "GATE 1 — EdS a(t) to <1e-6 over a=0.01→1" begin

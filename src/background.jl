@@ -239,8 +239,9 @@ solved.
 """
 function spatial_constraint(M::FLRWModel, s_prev, slabA, s_cur, slabB, s_next;
                             dτA=M.dτ, dτB=M.dτ)
-    esq = _esq_window3((s_prev, s_cur, s_next, -dτA^2, slabA..., -dτB^2, slabB...), M.ns, M.N)
-    return ntuple(i -> class_residual(M.eq_sp[i], esq, M.pents3, M.κ, M.conv), 3)
+    D = Double64                       # boost deficits are Float64-garbage (precision law #1)
+    esq = _esq_window3(D.((s_prev, s_cur, s_next, -dτA^2, slabA..., -dτB^2, slabB...)), M.ns, M.N)
+    return ntuple(i -> Float64(class_residual(M.eq_sp[i], esq, M.pents3, M.κ, M.conv)), 3)
 end
 
 """

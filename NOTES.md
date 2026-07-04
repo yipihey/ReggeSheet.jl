@@ -193,6 +193,14 @@ Findings (each measured, in order of discovery):
     time-oscillating (parasitic) component — e.g. w_d·(sp2 − 2·sp1 + sp0) rows at an amplitude
     that vanishes at the scheme's accuracy order; alternatively a wider implicit window (solve
     two slabs jointly) or a dissipative reformulation of the solved set.
+11b. **KO-style dissipation KILLS the parasitic root.** Soft rows w_d·√dmax·(sp2 − (2·sp1 − sp0))
+    per slice-2 spatial edge (one unknown per row ⇒ diagonal normal-equation contributions;
+    the row's own recurrence has a double root at λ=1, pulling |λ_p|=3 below 1). Measured at A=1,
+    12 steps, w_d ∈ {0.1, 0.3, 1.0}: ALL stable, no exponential growth; err_x grows only LINEARLY
+    (~1e-5/step, ≈ the same across all w_d ⇒ the drift is scheme truncation, NOT dissipation
+    bias); w_d=1 is cleanest (err_perp flat at 1.0e-6, constraints 9.4e-10). Production default
+    w_d=1. The marching scheme is now: Sorkin split + gauge pins + constraint damping (wc=1) +
+    KO dissipation (wd=1) + CFL 0.4 + York initial data.
 12. **Discrete York initial data WORKS.** Extending `initial_slab_solve!` with the slice-1
     spatial edges as unknowns and the Hamiltonian+momentum constraints as soft rows drives the
     initial Hamiltonian residual from 1e-8 (14% of the dust scale — the raw analytic chords at 3
@@ -228,7 +236,26 @@ Findings (each measured, in order of discovery):
   spatial (Raychaudhuri) constraint residuals sit at 1e-11–1e-13 without ever being solved — the
   discrete Bianchi consistency of the Sorkin split. CI gate runs lna_step=3e-3, dx=1e-4 (18×
   margin). Wall-clock: ~1545 Double64 steps in a few minutes, single-threaded.
-- **Gate #2 (Zel'dovich)**: not started. **Design notes from the FLRW work** (for M2/M3):
+- **Gate #2 (Zel'dovich): PASSED.** N=3 (kdx = 2π/3, THREE points per wavelength), A=10
+  (D·A ≈ 0.2, genuinely nonlinear), CFL 0.4, wd=1, wc=1, York initial data; 12-step CI march:
+
+  | metric | measured | threshold |
+  |---|---|---|
+  | max err_x (wave vs analytic)      | 1.34e-3 | < 3e-3 |
+  | max err_perp (emergent plane sym) | 1.82e-4 | < 5e-4 |
+  | max constraint (Ham+mom)          | 9.3e-7  | < 1e-5 |
+  | stability (no exponential growth) | linear-in-steps | ✓ |
+
+  Error budget (measured): the deviation from the continuum solution is SPATIALLY dominated —
+  ≈0.7–0.9% of the wave amplitude, INDEPENDENT of dτ (CFL 0.4 vs 0.2 at matched Δlna: 1.21e-4 vs
+  1.69e-4 at A=1) and ∝ D·A (A=1: 1.7e-4; A=10: 1.34e-3). This is the (kdx)² sampling error of a
+  wave at 3 points/wavelength — the discrete solution converges to the continuum with spatial
+  refinement (N=4 point: see run log), satisfying the accepted convergent-gate criterion.
+  Precision gotcha closed along the way: the vacuum unit test and the FLRW constraint monitor
+  evaluated residuals in Float64 — boost-deficit garbage per precision law #1 (measured d1-class
+  residual −0.58 from deficits that are 1e-14 in Double64); both now promote to Double64.
+
+- ~~Gate #2 (Zel'dovich): not started.~~ **Design notes from the FLRW work** (for M2/M3):
   * Build the GENERAL inhomogeneous per-edge machinery and run it on 1D ICs — the plane symmetry
     should EMERGE, a stronger gate than a 1D-specialized solver (and it's the M3/M4 engine anyway).
   * Slab-local equations (pole + diagonals; rings close within one slab — a combinatorial fact,

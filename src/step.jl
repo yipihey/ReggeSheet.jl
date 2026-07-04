@@ -147,7 +147,13 @@ from LOCAL duals over the equation's ring-edge support, threaded.
 function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                       unknowns::Vector{Int}, equations::Vector{Int}, dust_of,
                       κ, conv, tol::Float64, maxit::Int=25, verbose::Bool=false,
-                      soft_equations::Vector{Int}=Int[], soft_weight::Float64=1.0)
+                      soft_equations::Vector{Int}=Int[], soft_weight::Float64=1.0,
+                      reg_rows::Vector{Tuple{Int,Float64}}=Tuple{Int,Float64}[],
+                      wreg::Float64=0.0)
+    # `reg_rows`: (unknown edge id, target value) — Kreiss–Oliger-style DISSIPATION rows
+    # wreg·√dmax·(L[e] − target), penalizing the parasitic (time-oscillating) root of the
+    # marching recurrence toward the smooth extrapolation `target` (its own recurrence has a
+    # double root at λ=1). One unknown per row ⇒ diagonal contributions to the normal equations.
     D = Double64
     U = sort(unknowns)
     uidx = Dict{Int,Int}(e => i for (i, e) in enumerate(U))
@@ -181,6 +187,7 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
     J = zeros(D, ne, nu)                                     # dense is fine at gate sizes
     maxr = Inf
     lm_λ = 1e-10                                             # LM damping (relative), adaptive
+    dmax_prev = one(D)
     for it in 1:maxit
         compute_deficits!(ε, kindc, ec, LD)
         # residuals (cheap, cached deficits); rows weighted (soft constraints < hard)
@@ -190,6 +197,12 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
         end
         maxr = Float64(maximum(abs, view(r, 1:nh)))          # convergence on the HARD rows
         obj = Float64(maximum(abs, r))
+        if wreg > 0 && it > 1                                 # dmax from the previous iteration
+            sdm = sqrt(Float64(dmax_prev))
+            for (ge, tgt) in reg_rows
+                obj = max(obj, abs(wreg * sdm * Float64(LD[ge] - D(tgt))))
+            end
+        end
         verbose && println("  GN it $it: max|r_hard| = $maxr  obj = $obj")
         # with soft rows present, keep iterating until LM stalls (soft rows have a nonzero
         # floor and must be given the iterations to pull; hard-only early exit skips them)
@@ -227,7 +240,17 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
         # step reduces ‖r‖∞, then relaxes it.
         JtJ = transpose(J) * J
         dmax = maximum(i -> JtJ[i, i], 1:nu)
+        dmax_prev = dmax
         Jtr = transpose(J) * r
+        # dissipation rows: wreg²·dmax on the diagonal, pulling toward the extrapolation target
+        if wreg > 0
+            wr2 = D(wreg)^2 * dmax
+            for (ge, tgt) in reg_rows
+                i = uidx[ge]
+                JtJ[i, i] += wr2
+                Jtr[i] += wr2 * (LD[ge] - D(tgt))
+            end
+        end
         λ = D(lm_λ) * dmax
         accepted = false
         for _ in 1:12
@@ -242,6 +265,12 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                 e = E[k]
                 rt = max(rt, Float64(abs(wrow[k] * edge_residual(ec, e, Lt, ε, kindc, κ, conv;
                                                                  dust=D(dust_of(e))))))
+            end
+            if wreg > 0
+                sdm = sqrt(Float64(dmax))
+                for (ge, tgt) in reg_rows
+                    rt = max(rt, abs(wreg * sdm * Float64(Lt[ge] - D(tgt))))
+                end
             end
             if rt < obj                                       # LM acceptance on the full objective
                 LD = Lt
@@ -274,7 +303,8 @@ the approximate discrete Bianchi identities amplify the inconsistency ×1e3/step
 """
 function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
                      κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
-                     maxit::Int=25, verbose::Bool=false, wc::Float64=1.0)
+                     maxit::Int=25, verbose::Bool=false, wc::Float64=1.0,
+                     diss::Vector{Tuple{Int,Float64}}=Tuple{Int,Float64}[], wd::Float64=0.0)
     pinset = Set(pins)
     U = [e for e in eachindex(ec.edges)
          if (ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp2]
@@ -287,7 +317,7 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
     dust_of = e -> ec.kind[e] === :poleB ? dust_pole : 0.0
     maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
                         κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose,
-                        soft_equations=S, soft_weight=wc)
+                        soft_equations=S, soft_weight=wc, reg_rows=diss, wreg=wd)
     # monitored constraints: Hamiltonian (poleB eqs, WITH dust) + momentum (pinned dgB eqs)
     LD = Double64.(L)
     ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))
