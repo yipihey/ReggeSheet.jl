@@ -217,9 +217,21 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
                 err_perp = max(err_perp, rel)            # pure transverse: plane symmetry
             end
         end
+        # per-x-bond mean profile of slice-2 x-edge l² (for offline gauge-drift/phase analysis)
+        xprof = zeros(Float64, N); xcnt = zeros(Int, N)
+        for (e, (v, w)) in enumerate(ec.edges)
+            ec.kind[e] === :sp2 || continue
+            qv = qco(v); qw = qco(w)
+            Δ = (mi(qw[1] - qv[1]), mi(qw[2] - qv[2]), mi(qw[3] - qv[3]))
+            (Δ[2] == 0 && Δ[3] == 0) || continue
+            i = mod(round(Int, min(qv[1], qv[1] + Δ[1]) / dx), N) + 1   # x-bond by lower column
+            xprof[i] += L[e]; xcnt[i] += 1
+        end
+        xprof ./= max.(xcnt, 1)
         tcur += dτB
         acur = a2_an                                      # clock bookkeeping only (analytic time)
-        push!(out, (t=tcur, a=acur, err_x=err_x, err_perp=err_perp, maxr=maxr, bianchi=bianchi))
+        push!(out, (t=tcur, a=acur, err_x=err_x, err_perp=err_perp, maxr=maxr, bianchi=bianchi,
+                    xprof=xprof))
         verbose && @printf("step %3d: a=%.4f  err_x=%.3e  err_perp=%.3e  |r|=%.2e  bianchi=%.2e\n",
                            step, acur, err_x, err_perp, maxr, bianchi)
         # ---- shift the window ----

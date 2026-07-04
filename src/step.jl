@@ -13,7 +13,8 @@
 # Deficits: a GLOBAL cache is computed once per sweep; each local solve recomputes only the
 # hinges touched by its unknowns (override esq), so blocks stay O(local).
 
-using LinearAlgebra: qr, ColumnNorm, Diagonal, lu, Symmetric
+using LinearAlgebra: qr, ColumnNorm, Diagonal, lu, Symmetric, I
+using SparseArrays: sparse, spdiagm, SparseMatrixCSC
 
 struct TentBlocks
     unknowns::Vector{Vector{Int}}                 # per spatial vertex: unknown edge ids
@@ -149,7 +150,7 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                       κ, conv, tol::Float64, maxit::Int=25, verbose::Bool=false,
                       soft_equations::Vector{Int}=Int[], soft_weight::Float64=1.0,
                       reg_rows::Vector{Tuple{Int,Float64}}=Tuple{Int,Float64}[],
-                      wreg::Float64=0.0)
+                      wreg::Float64=0.0, sparse_threshold::Int=800)
     # `reg_rows`: (unknown edge id, target value) — Kreiss–Oliger-style DISSIPATION rows
     # wreg·√dmax·(L[e] − target), penalizing the parasitic (time-oscillating) root of the
     # marching recurrence toward the smooth extrapolation `target` (its own recurrence has a
@@ -184,7 +185,12 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
     kindc = fill(:euclid, length(ec.hinges))
     nu = length(U); ne = length(E)
     r = zeros(D, ne)
-    J = zeros(D, ne, nu)                                     # dense is fine at gate sizes
+    # dense Double64 normal equations up to ~N=4; beyond that assemble a Float64 sparse J and
+    # solve the damped least squares by sparse QR — the STEP DIRECTION only needs a few digits
+    # (LM acceptance uses full-precision Double64 residuals, so an imprecise direction merely
+    # costs iterations), while residual EVALUATION keeps the boost-precision law intact.
+    sparse_path = nu > sparse_threshold
+    J = sparse_path ? zeros(D, 0, 0) : zeros(D, ne, nu)
     maxr = Inf
     lm_λ = 1e-10                                             # LM damping (relative), adaptive
     dmax_prev = one(D)
@@ -209,7 +215,11 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
         maxr < tol && isempty(soft_equations) && break
         maxr < tol && obj < 1e3 * tol && break
         # Jacobian: per-equation local ForwardDiff over its support
-        fill!(J, zero(D))
+        ntid = Threads.maxthreadid()                     # interactive pool: threadid > nthreads
+        trip_i = [Int[] for _ in 1:ntid]
+        trip_j = [Int[] for _ in 1:ntid]
+        trip_v = [Float64[] for _ in 1:ntid]
+        sparse_path || fill!(J, zero(D))
         Threads.@threads :static for k in 1:ne
             e = E[k]
             S = support[k]
@@ -230,31 +240,76 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                 G
             end
             g = ForwardDiff.gradient(f, D[LD[s] for s in S])
-            for (i, s) in enumerate(S)
-                J[k, uidx[s]] = wrow[k] * g[i]
+            if sparse_path
+                tid = Threads.threadid()
+                for (i, s) in enumerate(S)
+                    push!(trip_i[tid], k); push!(trip_j[tid], uidx[s])
+                    push!(trip_v[tid], Float64(wrow[k] * g[i]))
+                end
+            else
+                for (i, s) in enumerate(S)
+                    J[k, uidx[s]] = wrow[k] * g[i]
+                end
             end
         end
+        A = sparse_path ?
+            sparse(vcat(trip_i...), vcat(trip_j...), vcat(trip_v...), ne, nu) :
+            sparse(Int[], Int[], Float64[], 1, 1)
         # Levenberg–Marquardt: adaptive damping instead of a line search — the system has a
         # near-null space (the un-gauge-fixed SHIFT freedom, ~3 modes/vertex), so small fixed λ
         # produces noise-dominated steps that a line search just rejects. LM raises λ until the
         # step reduces ‖r‖∞, then relaxes it.
-        JtJ = transpose(J) * J
-        dmax = maximum(i -> JtJ[i, i], 1:nu)
-        dmax_prev = dmax
-        Jtr = transpose(J) * r
-        # dissipation rows: wreg²·dmax on the diagonal, pulling toward the extrapolation target
-        if wreg > 0
-            wr2 = D(wreg)^2 * dmax
-            for (ge, tgt) in reg_rows
-                i = uidx[ge]
-                JtJ[i, i] += wr2
-                Jtr[i] += wr2 * (LD[ge] - D(tgt))
+        local JtJ, Jtr, Aall, rhsF
+        if sparse_path
+            # column-norm² for scaling; reg rows appended as sparse rows
+            cn = zeros(Float64, nu)
+            for col in 1:nu
+                for idx in A.colptr[col]:(A.colptr[col+1]-1)
+                    cn[col] += A.nzval[idx]^2
+                end
+            end
+            dmax = D(maximum(cn))
+            dmax_prev = dmax
+            sdm = sqrt(Float64(dmax))
+            nreg = length(reg_rows)
+            if wreg > 0 && nreg > 0
+                ri = collect(ne+1:ne+nreg)
+                rj = [uidx[ge] for (ge, _) in reg_rows]
+                rv = fill(wreg * sdm, nreg)
+                Aall = vcat(A, sparse(ri .- ne, rj, rv, nreg, nu))
+                rhsF = vcat(Float64.(r), [wreg * sdm * Float64(LD[ge] - D(tgt))
+                                          for (ge, tgt) in reg_rows])
+            else
+                Aall = A
+                rhsF = Float64.(r)
+            end
+        else
+            JtJ = transpose(J) * J
+            dmax = maximum(i -> JtJ[i, i], 1:nu)
+            dmax_prev = dmax
+            Jtr = transpose(J) * r
+            # dissipation rows: wreg²·dmax on the diagonal, pulling toward the extrapolation target
+            if wreg > 0
+                wr2 = D(wreg)^2 * dmax
+                for (ge, tgt) in reg_rows
+                    i = uidx[ge]
+                    JtJ[i, i] += wr2
+                    Jtr[i] += wr2 * (LD[ge] - D(tgt))
+                end
             end
         end
         λ = D(lm_λ) * dmax
         accepted = false
         for _ in 1:12
-            Δ = lu(JtJ + λ * Diagonal(ones(D, nu))) \ Jtr
+            local Δ
+            if sparse_path
+                sλ = sqrt(Float64(λ))
+                Aaug = vcat(Aall, sparse(1:nu, 1:nu, fill(sλ, nu), nu, nu))
+                ΔF = qr(Aaug) \ vcat(rhsF, zeros(Float64, nu))
+                Δ = D.(ΔF)
+            else
+                Δ = lu(JtJ + λ * Diagonal(ones(D, nu))) \ Jtr
+            end
             Lt = copy(LD)
             for (i, e) in enumerate(U)
                 Lt[e] = LD[e] - Δ[i]
