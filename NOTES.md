@@ -254,9 +254,22 @@ Findings (each measured, in order of discovery):
      N=3: 1.34e-3, N=4: 3.51e-3, N=5: 4.11e-3 — +162% then +17%) — N=3 was anomalously GOOD
      (Z₃-symmetric wave), N≥4 approaches the generic envelope ≈1% of the wave per 12 steps.
   3. Portrait of the deviation: linear-in-steps, ∝ D·A, dτ-weak (per-step ∝ dτ^~0.5 at fixed
-     CFL), wd-independent (not dissipation bias), φ=0 (not gauge). Next scaling axis — the one
-     the M4 harness lives in — is kdx ≪ 1 (well-resolved modes): N=8 (kdx=0.79) via the sparse
-     solver, N=12 (kdx=0.52) overnight.
+     CFL), wd-independent (not dissipation bias), φ=0 (not gauge).
+  4. **The ξ/dx law (hypothesis + first confirmation pending):** N=8/kdx=0.79 gives err_x =
+     5.61e-3 — STILL growing as the wave is better resolved, killing the (kdx)² story entirely.
+     But err/(ξ/dx) with ξ = D·A/k (the DISPLACEMENT amplitude) is ≈ constant (0.025) for N≥4:
+     [N, kdx, ξ/dx, err_x, err/(ξ/dx)] = [4, 1.57, 0.127, 3.51e-3, 0.028];
+     [5, 1.26, 0.159, 4.11e-3, 0.026]; [8, 0.79, 0.255, 5.61e-3, 0.022]. The controlling
+     resolution parameter is DISPLACEMENT PER CELL — the classic Lagrangian-code criterion — not
+     wave sampling; the study conflated them by fixing the slope D·A while growing the box.
+     **CONFIRMED**: N=8 at matched ξ/dx = 0.096 (A=3.77, D·A=0.075) gives err_x = 1.54e-3 vs
+     N=3's 1.34e-3 — the absolute error tracks ξ/dx to ~15% while kdx varies 2.6×, D·A varies
+     2.7× and N varies 3→8. The M3 resolution study is CLOSED with the systematics model:
+     **err_x(12 steps) ≈ 0.015–0.03 · (ξ/dx)** (conservative envelope 0.03), the classic
+     Lagrangian displacement-per-cell criterion. M4 consequence: Regge−nLPT residuals are
+     trustworthy where 0.03·(ξ/dx)·(steps/12) ≪ the sought GR/LPT-truncation signal — early
+     times and quasilinear scales, degrading as ξ/dx → 1 toward shell-crossing (where the
+     caustic detector halts per spec).
 
   Error budget (original gate-2 measurements): the deviation from the continuum solution is ≈0.7–0.9% of the wave
   amplitude, INDEPENDENT of dτ (CFL 0.4 vs 0.2 at matched Δlna: 1.21e-4 vs 1.69e-4 at A=1) and
