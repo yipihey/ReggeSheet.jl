@@ -1,0 +1,14 @@
+# M4 comparison env. As the active root its [sources] are authoritative (the Vespa idiom).
+# DiscoDJNative from the LOCAL checkout (offline, fast); switch to the git subdir URL to pin.
+[deps]
+ReggeSheet = "d21eda78-1ddd-4fce-aafb-779fc59bce21"
+DiscoDJNative = "a63bbb6b-882d-410c-bee8-eee95503f980"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[sources]
+ReggeSheet = {path = ".."}
+DiscoDJNative = {path = "/home/tabel/Projects/DiscoDJ.jl/native/DiscoDJNative"}

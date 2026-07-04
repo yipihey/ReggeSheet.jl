@@ -17,6 +17,8 @@ include("background.jl")
 include("edges.jl")
 include("step.jl")
 include("zeldovich.jl")
+include("embed_slice.jl")
+include("march3d.jl")
 
 # geometry primitives
 export minkowski_sq, edge_sq, cm_volume_sq, tri_area_sq, tet_volume_sq, pent_volume_sq
@@ -33,6 +35,7 @@ export FLRWModel, flrw_step, flrw_march, spatial_constraint, build_class_equatio
 # general per-edge machinery (M2+)
 export EdgeComplex, edge_kind, state_esq, compute_deficits!, edge_residual
 export TentBlocks, sweep_slab!, solve_slab!, solve_edges!, initial_slab_solve!
-export zel_spatial_lsq, zel_seed_window!, window_shift_map, gauge_pins, march_zeldovich
+export zel_spatial_lsq, zel_X, zel_seed_window!, window_shift_map, gauge_pins, march_zeldovich
+export embed_slice, slice_edges, march3d
 
 end # module
