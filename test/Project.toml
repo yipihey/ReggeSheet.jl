@@ -1,0 +1,11 @@
+# Dedicated core test env. Activating --project=test makes its [sources] authoritative, so
+# ReggeSheet resolves from the path directly. No DiscoDJNative: gates #1/#2 are pure-core.
+[deps]
+ReggeSheet = "d21eda78-1ddd-4fce-aafb-779fc59bce21"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+ReggeSheet = {path = ".."}

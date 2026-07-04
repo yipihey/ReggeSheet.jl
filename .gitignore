@@ -1,0 +1,5 @@
+Manifest.toml
+test/Manifest.toml
+compare/Manifest.toml
+*.cov
+output/
