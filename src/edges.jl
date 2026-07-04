@@ -33,6 +33,10 @@ struct EdgeComplex
     # per-edge equation: (hinge index, slot of this edge in that hinge)
     eqs::Vector{Vector{Tuple{Int,Int}}}
     complete::Vector{Bool}                               # all hinges of this edge have closed rings
+    # DERIVATIVE INCIDENCE: a hinge's deficit depends on ALL edges of its ring's pentachora
+    # (the wedge invariants use full 5-vertex D-matrices), NOT just the hinge triangle's 3 edges.
+    ring_edges::Vector{Vector{Int}}                      # per hinge: edge ids of its ring pents
+    hinges_touching::Vector{Vector{Int}}                 # per edge: hinges whose RING contains it
 end
 
 """
@@ -82,7 +86,25 @@ function EdgeComplex(N::Int)
             end
         end
     end
-    return EdgeComplex(N, ns, pents, edges, eid, kinds, hinges, rings, eqs, complete)
+    # ring-based derivative incidence
+    ring_edges = Vector{Vector{Int}}(undef, length(hinges))
+    for hi in eachindex(hinges)
+        es = Int[]
+        for (pid, _, _) in rings[hi]
+            p = pents[pid]
+            for i in 1:4, j in i+1:5
+                a, b = p[i] < p[j] ? (p[i], p[j]) : (p[j], p[i])
+                push!(es, eid[(a, b)])
+            end
+        end
+        ring_edges[hi] = sort(unique(es))
+    end
+    hinges_touching = [Int[] for _ in edges]
+    for hi in eachindex(hinges), e in ring_edges[hi]
+        push!(hinges_touching[e], hi)
+    end
+    return EdgeComplex(N, ns, pents, edges, eid, kinds, hinges, rings, eqs, complete,
+                       ring_edges, hinges_touching)
 end
 
 # esq closure over the flat state vector L (signed l² per canonical edge).

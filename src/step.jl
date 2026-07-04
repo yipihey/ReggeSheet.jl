@@ -43,14 +43,10 @@ function TentBlocks(ec::EdgeComplex)
             poleB[spidx(v)] = e
         end
     end
-    # touched hinges = union of hinge memberships of the unknowns
-    hinge_of_edge = [Int[] for _ in eachindex(ec.edges)]
-    for (hi, h) in enumerate(ec.hinges)
-        for (a, b) in ((h[1], h[2]), (h[1], h[3]), (h[2], h[3]))
-            push!(hinge_of_edge[ec.eid[a < b ? (a, b) : (b, a)]], hi)
-        end
-    end
-    touched = [sort(unique(vcat(Int[], (hinge_of_edge[e] for e in unknowns[v])...))) for v in 1:nv]
+    # touched hinges = hinges whose RING contains any unknown (a deficit depends on all edges of
+    # its ring pentachora — hinge-triangle-only incidence truncates the derivative pattern)
+    touched = [sort(unique(vcat(Int[], (ec.hinges_touching[e] for e in unknowns[v])...)))
+               for v in 1:nv]
     # OVERLAPPING (Schwarz) equations: every COMPLETE, solvable-kind edge equation that references
     # any touched hinge — i.e. every equation this block's unknowns actually influence. Unknown
     # updates stay ownership-disjoint; only the local LSQ sees overlapping rows. (The disjoint
@@ -149,30 +145,37 @@ assembled per-equation from LOCAL duals (an equation depends only on the edges o
 threaded, so assembly is O(#eqs · local-size), never global-dense differentiation.
 """
 function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
-                     κ, conv, dust_pole, tol::Float64, maxit::Int=25, verbose::Bool=false)
+                     κ, conv, dust_pole, tol::Float64, maxit::Int=25, verbose::Bool=false,
+                     pinned::Vector{Int}=Int[], soft_gauge::Bool=true, wgauge::Float64=1e-3)
     D = Double64
-    # global unknown index
+    pinset = soft_gauge ? Set{Int}() : Set(pinned)
+    # SOFT gauge (default): the shift-gauge edges STAY unknowns; their gauge conditions
+    # (L[e] = caller-seeded pin value) enter as weighted least-squares rows that steer the
+    # near-null shift space. HARD pinning (soft_gauge=false) excludes them — but the discrete
+    # Bianchi identities are only approximate, so hard pins make successive windows exactly
+    # unsolvable (measured: sp1 floors growing ×1e3/step). Soft gauge never conflicts with the
+    # physics equations.
+    gauge_edges = soft_gauge ? pinned : Int[]
+    gauge_vals = Float64[L[e] for e in gauge_edges]
     U = Int[]
     for v in eachindex(tb.unknowns)
         append!(U, tb.unknowns[v])
     end
     sort!(U)
+    filter!(e -> !(e in pinset), U)
     uidx = Dict{Int,Int}(e => i for (i, e) in enumerate(U))
-    # equations: complete sp1/dgB/poleB edges
     E = [e for e in eachindex(ec.edges)
-         if ec.complete[e] && ec.kind[e] in (:sp1, :dgB, :poleB)]
-    # per-equation unknown support + hinge list (combinatorial)
-    hinge_edges = [Int[] for _ in eachindex(ec.hinges)]     # unknown edges per hinge
-    for (i, e) in enumerate(U)
-        for (hi, _) in ec.eqs[e]                             # hinges containing unknown e:
-            push!(hinge_edges[hi], e)                        #  (eqs[e] lists (hinge,slot) pairs)
-        end
-    end
+         if ec.complete[e] && ec.kind[e] in (:sp1, :dgB, :poleB) && !(e in pinset)]
+    # per-equation unknown support: eq e depends on the RING edges of its hinges (a deficit is a
+    # function of ALL edges of its ring pentachora, not just the hinge triangle) ∩ unknowns.
+    uset = Set(U)
     support = Vector{Vector{Int}}(undef, length(E))
     for (k, e) in enumerate(E)
         s = Int[]
         for (hi, _) in ec.eqs[e]
-            append!(s, hinge_edges[hi])
+            for re in ec.ring_edges[hi]
+                re in uset && push!(s, re)
+            end
         end
         support[k] = sort(unique(s))
     end
@@ -229,6 +232,15 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex, tb::TentBlocks;
         JtJ = transpose(J) * J
         dmax = maximum(i -> JtJ[i, i], 1:nu)
         Jtr = transpose(J) * r
+        # soft gauge rows: w²·(x_g − pin) steering the shift null space (scaled to the physics rows)
+        if soft_gauge && !isempty(gauge_edges)
+            wg2 = D(wgauge)^2 * dmax
+            for (gi, ge) in enumerate(gauge_edges)
+                i = uidx[ge]
+                JtJ[i, i] += wg2
+                Jtr[i] += wg2 * (LD[ge] - D(gauge_vals[gi]))
+            end
+        end
         λ = D(lm_λ) * dmax
         accepted = false
         for _ in 1:12

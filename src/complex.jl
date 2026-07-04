@@ -25,10 +25,16 @@ function build_pentachora(N::Int)
         end
         for tet in TETS
             # prism local vertices 1..4 = bottom tet (slice 0), 5..8 = top tet (slice 1).
-            # CRITICAL: the staircase product triangulation is globally consistent ONLY if the
-            # tet vertices are taken in a global total order (adjacent prisms then triangulate
-            # their shared wall identically) — sort the bottom ids ascending.
-            bottom = _sort4(corner[tet[1]], corner[tet[2]], corner[tet[3]], corner[tet[4]])
+            # CRITICAL (wall consistency): the staircase product triangulation is consistent iff
+            # adjacent prisms order their shared wall's vertices identically. Sorting by LOCAL
+            # CORNER id (lex in comoving offsets) achieves this — a shared face's relative order
+            # depends only on the in-face offsets, which both cubes agree on — AND it is fully
+            # translation-invariant (no special wrap cubes; every vertex has exactly 7 incoming
+            # diagonals, which the gauge fixing relies on). Sorting by GLOBAL id is also wall-
+            # consistent but breaks translation invariance at the periodic wrap (in-diagonal
+            # counts 0–14) — do not use it.
+            ts = _sort4(tet[1], tet[2], tet[3], tet[4])
+            bottom = (corner[ts[1]], corner[ts[2]], corner[ts[3]], corner[ts[4]])
             local8 = (bottom[1], bottom[2], bottom[3], bottom[4],
                       ns + bottom[1], ns + bottom[2], ns + bottom[3], ns + bottom[4])
             for pen in PRISM_PENTA

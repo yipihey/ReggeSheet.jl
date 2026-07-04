@@ -120,6 +120,48 @@ Findings (each measured, in order of discovery):
    * For gate #2 the pragmatic path is the 1D-reduced (per-column classes) solve — the reduction
      picks the symmetric gauge representative implicitly, exactly as the FLRW ansatz did — with
      the general 3D machinery + explicit shift gauge-fixing as the M3 follow-on.
+     [SUPERSEDED — the general engine was fixed instead; see below.]
+
+6. **Corner-sort staircase (supersedes the global-id sort).** Wall consistency requires only that
+   adjacent prisms order shared-face vertices identically — sorting tet vertices by LOCAL corner
+   id (lex in comoving offsets) achieves this because in-face relative offsets are shared, AND it
+   is translation-invariant: no special wrap cubes, every vertex owns exactly 7 incoming
+   diagonals. (The global-id sort was also consistent but wrap-broken: in-degrees 0–14, which had
+   blocked uniform gauge pinning.) Flat closure re-verified at 1.5e-15.
+7. **The Jacobian support must be RING-based.** A hinge's deficit depends on ALL edges of its
+   ring's pentachora (wedge invariants use full 5-vertex D-matrices), not just the hinge
+   triangle's 3 edges. The first Gauss–Newton used hinge-triangle-only supports — most Jacobian
+   entries silently missing — producing slow creep + LM stalls (and contributing to the Schwarz
+   divergence). With `ring_edges`/`hinges_touching` incidence the gauge-fixed GN converges to the
+   quantization floor.
+8. **Gauge-fixed recovery PASSES**: pinning poles (lapse) + the 3 axis-offset incoming diagonals
+   per vertex (shift; uniform thanks to the corner-sort) makes the slab solution unique — from a
+   3e-3 perturbation the global GN drives max|r| → 1.1e-16 (state-quantization floor) and
+   recovers the FLRW slab to 4.9e-7 (Float64 quantization of the truth). The general engine is
+   validated end-to-end; gate #2 marches it on 1D Zel'dovich ICs with the zero-shift pin
+   d(axis) := pole + sp1.
+9. **MARCHING: step 1 superb, step 2 collapses — the open M2 problem.** First march step (N=3,
+   one wavelength): err_x = 4.6e-3 at THREE points per wavelength, **err_perp = 4.5e-8 = plane
+   symmetry EMERGES through the full 3D engine**, Bianchi 1e-10. But the second window's sp1
+   equations are exactly unsolvable (least-squares floor 1.4e-4, O(1) relative), and the
+   compromise state explodes by step 3 (×1e3/step). NOT wave physics: A=0 (pure FLRW through the
+   general march) fails identically. NOT the hard pins: soft-gauge rows (all unknowns free,
+   weighted gauge steering) fail identically. Two live hypotheses:
+   (a) equation SCHEDULING: each window imposes 15 eqs/vertex on 14 unknowns; exactness of the
+       count relies on the discrete Bianchi identities, which are only approximate — the Sorkin
+       prescription drops the 4 gauge-conjugate equations (pole + pinned diagonals) and/or defers
+       slab-internal equations to the next window; note dust lives ONLY in the pole equation
+       (comoving dust has T_ij = 0 — spatial equations are dust-free, correct physically), so the
+       drop/defer choice must still route dust into the solve (the FLRW-class march did: it
+       solved {pole, diag} and dropped sp1 — the DUAL split, closed by symmetry).
+   (b) SEED contamination: the first window's slab A comes from analytic midpoint chords —
+       O(dτ³) off-shell; window 1 solves its sp1 equations by bending slab B off-trajectory, and
+       window 2 inherits an inconsistent past.
+   DECISIVE experiment (next session): build window 2 entirely from exact flrw_step slabs and
+   test solvability — separates (a) from (b) immediately. If (a): restructure the solved set per
+   the Sorkin split (defer slab-internal {poleB,dgB} to the next window, solve {poleA,dgA,sp1}
+   there — dust then enters via poleA). If (b): seed slab A by solving a proper initial-data
+   problem instead of midpoint chords.
 
 ## Gate status
 
