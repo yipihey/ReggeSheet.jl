@@ -10,9 +10,9 @@ using Random
 const CH0 = 2997.92458                     # Mpc/h per c/H0
 
 """EdS cosmology (Ω_m = 1) with Planck18-ish spectrum shape for the transfer function."""
-eds_cosmology() = compute_timetables(Cosmology(Omega_c=0.951, Omega_b=0.049, h=0.67742,
-                                               sigma8=0.8105, n_s=0.96822))
-lcdm_cosmology() = compute_timetables(Cosmology())           # Planck18EEBAOSN defaults
+eds_cosmology() = compute_timetables(Cosmology{Float64}(Omega_c=0.951, Omega_b=0.049, h=0.67742,
+                                                        sigma8=0.8105, n_s=0.96822))
+lcdm_cosmology() = compute_timetables(Cosmology("Planck18EEBAOSN"))
 
 """
     make_ics(cosmo, N, box_mpch, seed) -> (lpt, grid)

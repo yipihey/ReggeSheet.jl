@@ -3,3 +3,4 @@ test/Manifest.toml
 compare/Manifest.toml
 *.cov
 output/
+compare/*.jls

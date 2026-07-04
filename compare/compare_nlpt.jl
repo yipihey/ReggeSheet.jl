@@ -1,6 +1,6 @@
 # M4 DELIVERABLE: ReggeSheet vs DISCO-DJ nLPT on identical ICs — Ψ residuals, P(k) ratios,
 # constraint drift; EdS + Planck18 ΛCDM.  Run:  julia --project=compare -t 16 compare/compare_nlpt.jl
-using ReggeSheet, Printf, Random
+using ReggeSheet, Printf, Random, Serialization
 include(joinpath(@__DIR__, "ics.jl"))
 include(joinpath(@__DIR__, "diagnostics.jl"))
 
@@ -20,11 +20,20 @@ function run_case(tag, cosmo)
     a1 = A0 * (1 + E_of_a(A0) * dτ)
     Ψ0 = psi_at(lpt, cosmo, A0, N)
     Ψ1 = psi_at(lpt, cosmo, a1, N)
-    t = @elapsed snaps, diag = march3d(N, dx, A0, a1, Ψ0, Ψ1;
-                                       E_of_a=E_of_a, Ωm=Omega_m(cosmo) > 0.99 ? 1.0 : Omega_m(cosmo),
-                                       snapshots=copy(SNAPS), verbose=true)
-    @printf("%s: %d steps in %.0fs; ham drift %.2e → %.2e\n", tag, length(diag), t,
-            diag[1].ham, diag[end].ham)
+    cache = joinpath(@__DIR__, "march_$(tag)_N$(N)_s$(SEED).jls")
+    local snaps, diag
+    if isfile(cache)
+        snaps, diag = deserialize(cache)
+        @printf("%s: loaded cached march (%d steps)\n", tag, length(diag))
+    else
+        t = @elapsed snaps, diag = march3d(N, dx, A0, a1, Ψ0, Ψ1;
+                                           E_of_a=E_of_a,
+                                           Ωm=Omega_m(cosmo) > 0.99 ? 1.0 : Omega_m(cosmo),
+                                           snapshots=copy(SNAPS), verbose=true)
+        serialize(cache, (snaps, diag))
+        @printf("%s: %d steps in %.0fs; ham drift %.2e → %.2e\n", tag, length(diag), t,
+                diag[1].ham, diag[end].ham)
+    end
     q = zeros(N^3, 3)
     for k in 1:N, j in 1:N, i in 1:N
         p = 1 + (i - 1) + N * ((j - 1) + N * (k - 1))

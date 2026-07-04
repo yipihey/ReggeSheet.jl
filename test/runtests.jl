@@ -19,6 +19,9 @@ end
     @testset "deficit angles (flat closure)" begin
         include("test_deficit.jl")
     end
+    @testset "slice embedding (M4)" begin
+        include("test_embed.jl")
+    end
     @testset "background FLRW (gate #1)" begin
         # lna_step calibrated by the convergence sweep (see NOTES.md); the march is ~O(minutes).
         global GATE1_LNA_STEP = 3e-3

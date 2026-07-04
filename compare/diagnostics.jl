@@ -29,7 +29,10 @@ end
 P(k) of a point set via the SHARED tetrahedral deposit (positions comoving, code units →
 converted to Mpc/h for DiscoDJNative). Same code path for Regge and nLPT.
 """
-function pk_of_positions(x_com::Matrix{Float64}, N::Int, box_code::Float64; ngrid::Int=2N)
+function pk_of_positions(x_com::Matrix{Float64}, N::Int, box_code::Float64; ngrid::Int=N)
+    # NOTE: DiscoDJNative sheet_deposit requires the deposit mesh res == the Lagrangian grid N
+    # (its internal reshape assumes res³ sample points); P(k) then reaches the N-grid Nyquist,
+    # which covers every mode the N³ IC grid carries anyway.
     box = box_code * CH0
     ns = N^3
     xg = zeros(Float64, N, N, N, 3)
@@ -40,6 +43,7 @@ function pk_of_positions(x_com::Matrix{Float64}, N::Int, box_code::Float64; ngri
         end
     end
     w = ones(Float64, N, N, N)
+    @assert ngrid == N "sheet_deposit requires deposit res == Lagrangian N"
     mesh = sheet_deposit(xg, w, ngrid, box; n_sub=1)
     δ = mesh ./ mean(mesh) .- 1
     res = evaluate_power_spectrum(δ, box; bins=8)
