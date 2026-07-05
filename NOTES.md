@@ -402,11 +402,16 @@ down 10% (6.31e-4 → 5.71e-4), δa/a down (2.6e-4 → 2.2e-4), and the mid-k P_
 now center on unity (1.01–1.07, was 0.85–1.08). BUT a near-identical event still fires at
 a≈0.15–0.19 and saturates at the same ham ≈ 2.2e-2 — with Λ in the action it now happens at
 Ω_Λ(a) ≈ 0.9%, so the missing-Λ hypothesis explained only part of the drift. The residual
-cause is OPEN; candidates (unmeasured): (a) radiation in the seed clock — `hubble_E` includes
-Ω_r (~1.5% of matter at the a=0.02 seeding) while the lattice carries dust+Λ only; (b) the
-KO-dissipation linear-extrapolation targets interacting with ΛCDM growth curvature. EdS at
-matched ξ/dx (0.006 at a=0.4) shows no event, so it is not pure amplitude. Follow-up line of
-work; the ΛCDM panel remains qualitative past a≈0.15.
+cause is OPEN. Candidate (a) — radiation in the seed clock — was tested by re-marching with a
+pure matter+Λ E(a) and is ELIMINATED BY VACUITY: `hubble_E` for this cosmology is already
+matter+Λ (the two clocks agree to machine precision; the isolation march is bit-identical,
+max ham 2.236e-2). Sharpened reading of the traces: EdS shows the SAME-SHAPED constraint bump
+(onset a≈0.07, peak 1.3e-3, then relaxes) — the ΛCDM event starts in the same a-range and
+reaches 17× that peak while carrying only ~2× the displacement, suggesting NONLINEAR
+amplification of a common resolution-scale trigger rather than a cosmology-specific term.
+Next diagnostics: (i) amplitude-scaling test (ICs ×0.5: max-ham ∝ A²⁺ ⇒ nonlinear/resolution;
+unchanged ⇒ structural), (ii) spatial localization of the ham residual at the event step,
+(iii) wd/wc sensitivity. The ΛCDM panel remains qualitative past a≈0.15.
 
 ## Scaling to spec (M6): the 64³ cost model
 
