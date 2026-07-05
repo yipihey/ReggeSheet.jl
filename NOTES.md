@@ -253,6 +253,65 @@ Scale caveat (honest): N=8 / 250 Mpc/h probes only k ≤ 0.1 h/Mpc with 8³ mode
 64³ needs the march at ~2.9M unknowns/slab — the sparse-QR path is the right architecture but
 per-step cost and EdgeComplex memory need engineering (M6 documentation item).
 
+## Solver performance: the derivative precision law and the 19× march
+
+Measurement-driven optimization of `solve_edges!` (all regression-gated on the FLRW-recovery
+value 4.982e-07, the 46-test suite, and bit-stable march errors). Headline, N=5 Zel'dovich
+march, 8 steps, sparse path (nu=1375/slab), 16 threads:
+
+| | old | new | |
+|---|---|---|---|
+| march wall-clock | **2038 s** | **105.6 s** | **19.3×** (identical err_x/err_perp/constraints) |
+| hard cold-start slab solve | 140 s | 53 s | 2.6× (identical \|r\| = 1.12e-16) |
+| Jacobian assembly (per) | 3.3–4.3 s | ~1.0 s | per-hinge chain rule |
+| damped-LSQ factorization (per) | 1.7–2.9 s | 0.01–0.03 s | CHOLMOD refactor |
+
+**Finding #13 — precision law #2: the boost cancellation extends to DERIVATIVES.** ∂ε/∂l² of a
+boost hinge is the same deep cancellation as ε itself. A Float64-dual Jacobian is O(40)-RELATIVE
+garbage (frobenius diff 3.9e1 vs the per-equation reference; Double64 duals agree to 8.8e-13),
+and the solver then *silently converges to wrong answers* (FLRW recovery 2.05 instead of 5e-7 —
+LM accepts steps, residuals drop, the result is wrong). All ForwardDiff through `hinge_deficit`
+must run Double64 duals; only the STORAGE of J is safely Float64. Consequence: there is no
+F32/F64 GPU escape for assembly — a GPU port would need double-double on FP64 (the A6000 runs
+FP64 at 1/32 rate — pointless). The optimization had to be structural, not precision.
+
+**What the 19× is made of** (each measured, each with its failure story):
+1. **Per-hinge Jacobian assembly**: differentiate each hinge's deficit ONCE over its ring
+   unknowns (slot-array override instead of a per-call Dict), then chain-rule
+   ∂G_e/∂u = κ·s_h·[∂(∂A/∂slot)/∂u·ε_h + (∂A/∂slot)·∂ε_h/∂u] into the ≤3 owning equations +
+   soft rows — vs the per-equation path that re-differentiated every hinge once per referencing
+   equation. 3–4× on assembly; validated against the per-equation J to 8.8e-13.
+2. **Chord (stale-J) reuse with a STRONG bar**: a stale-J step gets one trial and must contract
+   rt < 0.3·obj, else J refreshes and the iteration retries (failed retries don't consume the
+   iteration budget). Pure chord under the plain rt<obj bar CRAWLS — λ escalates, hair-thin
+   steps keep passing, maxit exhausts far from the solution (recovery 4.6e-2).
+3. **CHOLMOD normal equations** `cholesky(Symmetric(A'A); shift=λ)` with numeric-only
+   `cholesky!` refactor keyed by (J version, λ), replacing per-trial SPQR of the augmented
+   system: 30–100× on the linear algebra at direction agreement Δ ~ 1e-14; non-PD at floor λ
+   caught → λ escalation. (LSMR is the designated replacement at 64³ where 3D-lattice Cholesky
+   fill walls; matvecs measured ~20 µs at nu=1375.)
+4. **Ladder economics** — the LM λ-ladder was half the march cost. Measured facts: march solves
+   sit on the KO-dissipation objective floor far above tol and exit only by stall; rt(λ) is
+   FLAT for many rungs (trial rt saturates while λ ≪ dmax) and improves only near λ ~ dmax.
+   Fixes: ×100 ladder acceleration after 2 flat rungs; a floor-GATED plateau exit (3 flat rungs
+   AND rt_best < 1.5·obj — an ungated version froze cold starts at their first iteration, and a
+   per-step minimal-progress bar stalled tol-converging solves whose ∞-norm plateaus for one
+   iteration then drops); a solve-level detector (3 CONSECUTIVE accepted steps with <2%
+   progress ⇒ converged-at-floor, killing measured 20+-iteration floor-polish grinds).
+5. **Negative result (tried, measured, REMOVED)**: warm-starting lm_λ across march solves —
+   from either the end-of-solve or the last-accepted value — made marches SLOWER (212→297/347s):
+   the ∞-norm acceptance rides a knife edge in λ, and a different starting rung changes which
+   marginal steps get accepted, wandering the shift null space (solves exploding from n_it=2 to
+   the maxit cap). Cold lm_λ = 1e-10 per solve stands.
+
+**GPU/KA verdict**: not worth porting. The dominant costs after optimization are Double64
+deficit sweeps (~17 µs/hinge, threaded, D64/F64 ratio only 1.4–1.7× — the kernel is
+structure-bound, not arithmetic-bound) and Double64-dual assembly (precision-locked by finding
+#13). The A6000's FP64 is 1/32–1/64 rate, so any GPU double-double path loses to the 128-core
+CPU; and the linear algebra is already sub-dominant. The 64³ scaling path is CPU threads
+(sweeps and assembly are embarrassingly parallel over hinges/equations) + LSMR + EdgeComplex
+memory engineering, not a GPU.
+
 ## Gate status
 
 - **Gate #1 (EdS a(t) < 1e-6): PASSED.** Crossing-free convergence sweep (diagonals uniformly
