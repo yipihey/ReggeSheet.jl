@@ -219,6 +219,40 @@ Findings (each measured, in order of discovery):
     during a march: long marches must re-grade dτ to hold the CFL number (and stay below the
     null crossing).
 
+## M4: the DISCO-DJ comparison harness
+
+Built and validated end-to-end (commits f10b8a4, a115fe0, fc6b197):
+- **`embed_slice`** (core): positions from edge lengths — sparse GN multilateration, wrap-aware,
+  translation-gauge-pinned; recovers the analytic Zel'dovich slice to **5.6e-16 cell units**
+  (permanent suite test). This bridges the intrinsic lattice state to position-based comparisons.
+- **`march3d`** (core): the general 3D march — seeds from arbitrary displacement arrays;
+  cosmology enters ONLY via E(a) + Ω_m; the lattice drives its own clock (mean sp2/sp1);
+  snapshots recorded for offline diagnostics.
+- **`compare/`**: DiscoDJNative env (local path source), ICs bridge (EdS + Planck18; Mpc/h ↔
+  c/H0 = 2997.92458; vertex-ordering match), Ψ-residuals vs 1/2/3LPT, P(k) through the SHARED
+  `sheet_deposit` (the comparison isolates dynamics), CairoMakie → PDF. March results cached
+  (`.jls`) so diagnostics iterate without re-marching.
+
+**Milestone: the first full-3D cosmological Regge march** — EdS, Gaussian seed-42 ICs
+(Planck18-shape spectrum, 250 Mpc/h, N=8), a = 0.02 → 0.06 in 64 steps, York initial data at
+ham = 1.2e-9, constraints bounded (2.4e-5 → 4.2e-4).
+
+Configuration lessons from the low-amplitude preview (a ≤ 0.06, ξ/dx ≈ 0.001 — displacements
+~100× below the validated regime):
+- LPT orders indistinguishable there (residuals identical to 4 digits) — no discrimination power;
+- the raw Ψ-residual is dominated by BACKGROUND-CLOCK truncation (δa/a ≈ 0.2% from the coarse
+  dlna ≈ 0.03 CFL steps) leaking through the q-spread — hence the scale-marginalized residual
+  (δa/a fitted and reported separately from the perturbation signal);
+- deposited-P(k) is estimator-noise-dominated at δ ~ 1e-3;
+- `sheet_deposit` requires deposit res == Lagrangian N (internal reshape).
+
+**Definitive run** (in flight): both cosmologies to a = 0.6 (ξ/dx → ~0.13, LPT orders separate),
+snapshots a = {0.1, 0.2, 0.4, 0.6} ≈ the spec's epoch list. RESULTS: [pending run completion]
+
+Scale caveat (honest): N=8 / 250 Mpc/h probes only k ≤ 0.1 h/Mpc with 8³ modes; the spec-scale
+64³ needs the march at ~2.9M unknowns/slab — the sparse-QR path is the right architecture but
+per-step cost and EdgeComplex memory need engineering (M6 documentation item).
+
 ## Gate status
 
 - **Gate #1 (EdS a(t) < 1e-6): PASSED.** Crossing-free convergence sweep (diagonals uniformly
