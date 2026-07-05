@@ -17,10 +17,16 @@ end
     psi_residual(x_regge, Ψ_lpt, q) -> (rms, max)  — |Ψ_regge − Ψ_lpt| stats (code units)
 """
 function psi_residual(x_regge::Matrix{Float64}, Ψ_lpt::Matrix{Float64}, q::Matrix{Float64})
-    d = (x_regge .- q) .- Ψ_lpt
-    d .-= mean(d, dims=1)                         # translation gauge
+    # marginalize the TRANSLATION gauge and a GLOBAL SCALE: the background-clock truncation of
+    # the coarse-CFL march appears as δa/a·(q-spread) and swamps the perturbation signal at low
+    # amplitude — fit it and report separately.
+    qc = q .- mean(q, dims=1)
+    d0 = (x_regge .- q) .- Ψ_lpt
+    d0 .-= mean(d0, dims=1)
+    s = sum(d0 .* qc) / sum(qc .* qc)             # LSQ global scale (δa/a)
+    d = d0 .- s .* qc
     r = sqrt.(sum(abs2, d, dims=2))
-    return sqrt(mean(r .^ 2)), maximum(r)
+    return sqrt(mean(r .^ 2)), maximum(r), s
 end
 
 """

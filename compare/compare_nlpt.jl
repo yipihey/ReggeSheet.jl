@@ -8,7 +8,7 @@ const N = 8
 const BOX_MPCH = 250.0
 const SEED = 42
 const A0 = 0.02
-const SNAPS = [0.03, 0.045, 0.06]
+const SNAPS = [0.1, 0.2, 0.4, 0.6]
 
 function run_case(tag, cosmo)
     @printf("=== %s ===\n", tag)
@@ -45,16 +45,19 @@ function run_case(tag, cosmo)
         xr = regge_positions(s, N, dx, q .+ Ψ3)
         row = (a=s.a, ξdx=maximum(sqrt.(sum(abs2, Ψ3, dims=2))) / dx)
         resids = Dict{Int,Tuple{Float64,Float64}}()
+        δaa = 0.0
         for no in 1:3
             Ψn = psi_at(lpt, cosmo, s.a, N; n_order=no)
-            resids[no] = psi_residual(xr, Ψn, q)
+            rms, mx, sc = psi_residual(xr, Ψn, q)
+            resids[no] = (rms, mx)
+            no == 3 && (δaa = sc)
         end
         kk, Pr = pk_of_positions(xr, N, N * dx)
         _, P3 = pk_of_positions(q .+ Ψ3, N, N * dx)
         push!(out, (a=s.a, ξdx=row.ξdx, resids=resids, k=kk, Pratio=Pr ./ P3))
         env = 0.03 * row.ξdx
-        @printf("  a=%.3f (ξ/dx=%.3f, sys≲%.1e): |Ψ_R−Ψ_nLPT| rms (code) 1LPT=%.2e 2LPT=%.2e 3LPT=%.2e\n",
-                s.a, row.ξdx, env * s.a * dx,
+        @printf("  a=%.3f (ξ/dx=%.3f, δa/a=%.2e): |Ψ_R−Ψ_nLPT| rms (code) 1LPT=%.3e 2LPT=%.3e 3LPT=%.3e\n",
+                s.a, row.ξdx, δaa,
                 resids[1][1], resids[2][1], resids[3][1])
         @printf("    P_Regge/P_3LPT: %s\n", join([@sprintf("%.4f", x) for x in Pr ./ P3], " "))
     end
