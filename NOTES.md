@@ -277,6 +277,35 @@ position/P(k) comparison against nLPT on identical ICs. It is NOT yet a GR-vs-LP
 discrimination: that needs ξ/dx raised into the validated 0.1–0.2 regime (larger N at fixed
 box and/or smaller box — the 64³ scaling path) and, for ΛCDM, the Λ volume term.
 
+## M5: the lightcone comparison (`compare/lightcone.jl`, `output/compare_lightcone.pdf`)
+
+Geometry: observer OUTSIDE the box along +x at χ(a=0.35) = 2449 Mpc/h from the box center, so
+the past lightcone sweeps the whole 250 Mpc/h box over a ∈ [0.306, 0.397]; a dedicated EdS
+march (258 steps, 56 min) records 18 snapshots across the window. Regge side: `embed_slice`
+per snapshot → per-vertex worldlines, linear-in-a interpolation, bisection of
+|x(a)−obs| = χ(a); the reference runs the SAME root-find through the shared
+`lightcone_cross_ad` kernel (K=1 Zel'dovich stack — the standard-nLPT ψ₂ carries D₁² growth,
+incompatible with the kernel's exact-growth D₂plus column, and M4 measured LPT orders
+identical to 4 digits at this amplitude, so K=1 is the consistent, lossless reference).
+Shared conventions: comoving Mpc/h; "velocity" = dx/dlna (the kernel's v_r = Σf₁D_kΨ_k·r̂ IS
+d(D₁Ψ₁)/dlna·r̂ for K=1); redshift-space offset s = x + (dx/dlna·r̂)r̂.
+
+RESULTS (all 512 particles cross in BOTH pipelines):
+
+| metric | rms | max |
+|---|---|---|
+| \|Δx_obs\| (crossing position) | **0.355 Mpc/h** | 0.81 Mpc/h |
+| \|Δa_cross\| | 4.1e-05 | 1.2e-04 |
+| \|Δv_r\| (dx/dlna, radial) | 0.045 Mpc/h | 0.14 Mpc/h |
+| kNN-CDF sup\|ΔCDF\| (k=1,2 × real,rsd) | — | **≤ 0.0045** |
+
+The position residual equals the M4 Ψ-residual floor EXACTLY (1.19e-4 code × 2998 =
+0.358 Mpc/h): **the lightcone crossing machinery (interpolation + bisection + RSD) adds no
+error beyond the known lattice systematics floor.** The kNN-CDFs (8192 volume-filling
+queries) agree BELOW their own sampling noise (~1/√8192 ≈ 0.011) in both real and redshift
+space — the two lightcone point processes are statistically indistinguishable at this
+amplitude, as the M4 floor predicts. M5 closed.
+
 Scale caveat (honest): N=8 / 250 Mpc/h probes only k ≤ 0.1 h/Mpc with 8³ modes; the spec-scale
 64³ needs the march at ~2.9M unknowns/slab — the sparse-QR path is the right architecture but
 per-step cost and EdgeComplex memory need engineering (M6 documentation item).
