@@ -246,8 +246,36 @@ Configuration lessons from the low-amplitude preview (a ≤ 0.06, ξ/dx ≈ 0.00
 - deposited-P(k) is estimator-noise-dominated at δ ~ 1e-3;
 - `sheet_deposit` requires deposit res == Lagrangian N (internal reshape).
 
-**Definitive run** (in flight): both cosmologies to a = 0.6 (ξ/dx → ~0.13, LPT orders separate),
-snapshots a = {0.1, 0.2, 0.4, 0.6} ≈ the spec's epoch list. RESULTS: [pending run completion]
+**Definitive run** (completed on the 19× solver; `output/compare_nlpt.pdf`): both cosmologies
+a = 0.02 → 0.6, snapshots a = {0.1, 0.2, 0.4, 0.6}; EdS 326 steps / 65 min, ΛCDM 552 steps /
+117 min (the pre-optimization solver could not finish EdS in 7 h). RESULTS:
+
+- **EdS (the clean case — the lattice solves exactly this model)**: York ham = 4.7e-10;
+  constraints bounded the whole march (2.6e-5 → 6.7e-4, plateaued — no secular growth over 326
+  steps to a=0.6). Measured ξ/dx = 0.002 → 0.010 — an order below the anticipated ~0.13: the
+  N=8 / 250 Mpc/h box samples only k ∈ [0.025, 0.1] h/Mpc with 8³ modes, and the displacement
+  variance in that window is small. Consequences, exactly as the ξ/dx law predicts:
+  |Ψ_R − Ψ_nLPT| rms ≈ 1.14–1.24e-4 code units, FLAT in a (a systematics floor, not a growing
+  dynamical signal), and **identical against 1/2/3LPT to 4 digits** — at this amplitude the LPT
+  orders differ by far less than the lattice floor, so M4 has NO LPT-order discrimination
+  power. δa/a ≤ 5e-5. P_Regge/P_3LPT stable in a at ±25–40% per bin (bins 1–7; the Nyquist bin
+  is a deposit artifact at 5–7× and should be ignored).
+- **ΛCDM (model-mismatched by construction)**: York ham = 7.1e-10 and a clean march to
+  a ≈ 0.12, then a CONSTRAINT-DRIFT EVENT at a ≈ 0.12–0.15 (ham 1.4e-3 → 2.1e-2 over ~30
+  steps) after which the march stays bounded at that level to a=0.6; Ψ-residual jumps 20× to
+  6.4e-4 (≈5× EdS) and δa/a flips sign to +2.4e-4. Leading explanation: the action has NO
+  cosmological-constant term — the lattice marches a pure-dust (open) universe from
+  ΛCDM-consistent initial data, while the per-step seeds/KO targets and the comparison
+  reference are ΛCDM; the event coincides with Ω_Λ(a) crossing the ~0.5% level (Ω_Λ(0.13) ≈
+  0.005 → 0.33 at a=0.6). The ΛCDM panel is therefore qualitative only. Fix queued: add the
+  volume term S_Λ = −(Λ/8πG)·Σ_pent V₄ (∂V₄²/∂l² is already in the Cayley–Menger machinery)
+  and re-run.
+
+**M4 verdict (honest)**: the deliverable demonstrated is the ENGINE + HARNESS — a stable,
+constraint-bounded, full-GR 3D Regge march of Gaussian-IC cold dust to a=0.6 with end-to-end
+position/P(k) comparison against nLPT on identical ICs. It is NOT yet a GR-vs-LPT
+discrimination: that needs ξ/dx raised into the validated 0.1–0.2 regime (larger N at fixed
+box and/or smaller box — the 64³ scaling path) and, for ΛCDM, the Λ volume term.
 
 Scale caveat (honest): N=8 / 250 Mpc/h probes only k ≤ 0.1 h/Mpc with 8³ modes; the spec-scale
 64³ needs the march at ~2.9M unknowns/slab — the sparse-QR path is the right architecture but
