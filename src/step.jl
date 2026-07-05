@@ -147,6 +147,7 @@ function _block_residual(ec::EdgeComplex, tb::TentBlocks, v::Int, L::AbstractVec
         εloc[hi] = e
     end
     out = Vector{T}(undef, length(tb.equations[v]))
+    lamb = _conv_lam(conv)
     for (i, eeq) in enumerate(tb.equations[v])
         G = ec.kind[eeq] === :poleB ? T(dust_pole) : zero(T)   # every pole eq carries its dust
         for (hi, slot) in ec.eqs[eeq]
@@ -155,6 +156,13 @@ function _block_residual(ec::EdgeComplex, tb::TentBlocks, v::Int, L::AbstractVec
             s = kindc[hi] == :boost ? T(conv.s_boost) : T(conv.s_euclid)
             εh = get(εloc, hi, T(ε[hi]))
             G += T(κ) * s * _dA_dslot(a, b, c, slot) * εh
+        end
+        if !iszero(lamb)                                  # Λ volume term
+            (ve, we) = ec.edges[eeq]
+            lκ = T(κ) * T(lamb)
+            for pid in ec.pents_of_edge[eeq]
+                G -= lκ * _dV4_dedge(ec.pents[pid], esq, ve, we)
+            end
         end
         out[i] = G
     end
@@ -372,6 +380,56 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                         end
                     end
                 end
+                # pass 3 (Λ volume term): per-pent Hessian of V₄, chain-ruled into rows —
+                # ∂²(−κ·lam·V₄)/∂l²_e∂l²_u for every equation edge e and unknown u of the pent.
+                # Pent edges lie inside the equations' ring supports, so the sparsity pattern
+                # (and the CHOLMOD symbolic) is unchanged. Duplicate (row,col) triplets are
+                # summed by sparse(); the dense path accumulates serially (small N only).
+                lamf = _conv_lam(conv)
+                if !iszero(lamf)
+                    rowof = zeros(Int, length(ec.edges))
+                    for (k, e) in enumerate(E)
+                        rowof[e] = k
+                    end
+                    lκ = Float64(κ) * Float64(lamf)
+                    pairs10 = ((1, 2), (1, 3), (1, 4), (1, 5), (2, 3), (2, 4), (2, 5),
+                               (3, 4), (3, 5), (4, 5))
+                    V4f = x -> sqrt(abs(pent_volume_sq(x...)))
+                    _pent_pass = pid -> begin
+                        p = ec.pents[pid]
+                        pe = Int[ec.eid[_ck(p[i], p[j])] for (i, j) in pairs10]
+                        any(e -> rowof[e] != 0, pe) || return nothing
+                        x0 = jacT[jacT(LD[e]) for e in pe]
+                        H = ForwardDiff.hessian(V4f, x0)
+                        tid = Threads.threadid()
+                        for se in 1:10
+                            k = rowof[pe[se]]
+                            k == 0 && continue
+                            wk = Float64(wrow[k])
+                            for su in 1:10
+                                u = pe[su]
+                                u in uset || continue
+                                val = -lκ * Float64(H[se, su])
+                                if sparse_path
+                                    push!(trip_i[tid], k); push!(trip_j[tid], uidx[u])
+                                    push!(trip_v[tid], wk * val)
+                                else
+                                    J[k, uidx[u]] += wrow[k] * D(val)
+                                end
+                            end
+                        end
+                        nothing
+                    end
+                    if sparse_path
+                        Threads.@threads :static for pid in eachindex(ec.pents)
+                            _pent_pass(pid)
+                        end
+                    else
+                        for pid in eachindex(ec.pents)   # dense J: rows shared across pents
+                            _pent_pass(pid)
+                        end
+                    end
+                end
             else
                 Threads.@threads :static for k in 1:ne
                     e = E[k]
@@ -389,6 +447,14 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
                             a, b, c = esq(h[1], h[2]), esq(h[1], h[3]), esq(h[2], h[3])
                             s = kh == :boost ? T(conv.s_boost) : T(conv.s_euclid)
                             G += T(κ) * s * _dA_dslot(a, b, c, slot) * εh
+                        end
+                        lamf = _conv_lam(conv)
+                        if !iszero(lamf)          # Λ volume term (nested duals ⇒ ∂²V₄ for free)
+                            (ve, we) = ec.edges[e]
+                            lκ = T(κ) * T(lamf)
+                            for pid in ec.pents_of_edge[e]
+                                G -= lκ * _dV4_dedge(ec.pents[pid], esq, ve, we)
+                            end
                         end
                         G
                     end

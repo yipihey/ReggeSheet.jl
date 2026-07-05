@@ -20,15 +20,17 @@ function run_case(tag, cosmo)
     a1 = A0 * (1 + E_of_a(A0) * dτ)
     Ψ0 = psi_at(lpt, cosmo, A0, N)
     Ψ1 = psi_at(lpt, cosmo, a1, N)
-    cache = joinpath(@__DIR__, "march_$(tag)_N$(N)_s$(SEED).jls")
+    # Λ volume term: Ω_Λ = 1 − Ω_m − Ω_k (flat ⇒ 1 − Ω_m); the cache tag carries the physics.
+    Ωm = Omega_m(cosmo) > 0.99 ? 1.0 : Omega_m(cosmo)
+    ΩΛ = Ωm ≈ 1.0 ? 0.0 : 1.0 - Ωm - cosmo.Omega_k
+    cache = joinpath(@__DIR__, "march_$(tag)$(ΩΛ > 0 ? "_lam" : "")_N$(N)_s$(SEED).jls")
     local snaps, diag
     if isfile(cache)
         snaps, diag = deserialize(cache)
         @printf("%s: loaded cached march (%d steps)\n", tag, length(diag))
     else
         t = @elapsed snaps, diag = march3d(N, dx, A0, a1, Ψ0, Ψ1;
-                                           E_of_a=E_of_a,
-                                           Ωm=Omega_m(cosmo) > 0.99 ? 1.0 : Omega_m(cosmo),
+                                           E_of_a=E_of_a, Ωm=Ωm, ΩΛ=ΩΛ,
                                            snapshots=copy(SNAPS), verbose=true)
         serialize(cache, (snaps, diag))
         @printf("%s: %d steps in %.0fs; ham drift %.2e → %.2e\n", tag, length(diag), t,

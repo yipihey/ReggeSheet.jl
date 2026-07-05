@@ -37,6 +37,10 @@ struct EdgeComplex
     # (the wedge invariants use full 5-vertex D-matrices), NOT just the hinge triangle's 3 edges.
     ring_edges::Vector{Vector{Int}}                      # per hinge: edge ids of its ring pents
     hinges_touching::Vector{Vector{Int}}                 # per edge: hinges whose RING contains it
+    # Λ VOLUME TERM incidence: S_Λ = −(Λ/8πG)·Σ_σ V₄(σ) adds −κΛ·Σ_{σ∋e} ∂V₄/∂l²_e to every
+    # edge equation. For `complete` edges the pent star is complete on the window (every pent
+    # containing e holds hinges containing e, whose rings are closed).
+    pents_of_edge::Vector{Vector{Int}}                   # per edge: pent ids containing it
 end
 
 """
@@ -103,8 +107,12 @@ function EdgeComplex(N::Int)
     for hi in eachindex(hinges), e in ring_edges[hi]
         push!(hinges_touching[e], hi)
     end
+    pents_of_edge = [Int[] for _ in edges]
+    for (pid, p) in enumerate(pents), i in 1:4, j in i+1:5
+        push!(pents_of_edge[eid[p[i] < p[j] ? (p[i], p[j]) : (p[j], p[i])]], pid)
+    end
     return EdgeComplex(N, ns, pents, edges, eid, kinds, hinges, rings, eqs, complete,
-                       ring_edges, hinges_touching)
+                       ring_edges, hinges_touching, pents_of_edge)
 end
 
 # esq closure over the flat state vector L (signed l² per canonical edge).
@@ -130,9 +138,28 @@ function compute_deficits!(ε::Vector{T}, kindc::Vector{Symbol}, ec::EdgeComplex
 end
 
 """
+    _dV4_dedge(p, esq, v, w) -> ∂V₄/∂l²_(v,w) for pentachoron `p` (proper 4-volume V₄ = √|V₄²|)
+
+Single-seed dual through the Cayley–Menger determinant — composes with outer ForwardDiff duals
+(the Jacobian paths get ∂²V₄ for free). Type follows `esq`.
+"""
+function _dV4_dedge(p::NTuple{5,Int}, esq, v::Int, w::Int)
+    f = t -> begin
+        esq2 = (a, b) -> ((a == v && b == w) || (a == w && b == v)) ? t : oftype(t, esq(a, b))
+        sqrt(abs(cm_volume_sq(pent_D(p, esq2))))
+    end
+    return ForwardDiff.derivative(f, esq(v, w))
+end
+
+# Λ action coefficient from `conv` (zero default keeps every pre-Λ path identical):
+# S_Λ = −(Λ/8πG)·Σ_σ V₄ = −κ·lam·Σ_σ V₄ with lam = Λ = 3Ω_Λ in code units (H0 = G = c = 1).
+@inline _conv_lam(conv) = get(conv, :lam, 0.0)
+
+"""
     edge_residual(ec, e, L, ε, kindc, κ, conv; dust=0) -> the Regge equation residual of edge `e`
 
-Uses the per-sweep deficit cache `ε`. `dust` adds m/(2τ) for pole edges.
+Uses the per-sweep deficit cache `ε`. `dust` adds m/(2τ) for pole edges. A nonzero `conv.lam`
+(= Λ = 3Ω_Λ in code units) adds the cosmological-constant volume term −κ·lam·Σ_{σ∋e} ∂V₄/∂l²_e.
 """
 function edge_residual(ec::EdgeComplex, e::Int, L::AbstractVector{T},
                        ε::Vector{T}, kindc::Vector{Symbol}, κ, conv; dust=zero(T)) where {T}
@@ -144,6 +171,13 @@ function edge_residual(ec::EdgeComplex, e::Int, L::AbstractVector{T},
         a, b, c = esq(h[1], h[2]), esq(h[1], h[3]), esq(h[2], h[3])
         s = kindc[hi] == :boost ? T(conv.s_boost) : T(conv.s_euclid)
         G += T(κ) * s * _dA_dslot(a, b, c, slot) * ε[hi]
+    end
+    lam = _conv_lam(conv)
+    if !iszero(lam)
+        lκ = T(κ) * T(lam)
+        for pid in ec.pents_of_edge[e]
+            G -= lκ * _dV4_dedge(ec.pents[pid], esq, v, w)
+        end
     end
     return G
 end

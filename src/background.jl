@@ -50,6 +50,7 @@ end
 struct ClassEquation
     rep::Tuple{Int,Int}                                   # representative edge (v, w)
     hinges::Vector{Tuple{NTuple{3,Int},Vector{Tuple{Int,Int,Int}},Int}}  # (h, ring, slot of rep)
+    epents::Vector{NTuple{5,Int}}                         # pentachora containing rep (Λ term)
 end
 
 # triangle edge slots: 1↔(h1,h2), 2↔(h1,h3), 3↔(h2,h3)
@@ -88,7 +89,8 @@ function build_class_equations(pents::Vector{NTuple{5,Int}}, ns::Int, N::Int, wa
             push!(hinges, (h, ring, _slot(h, v, w)))
         end
         ok || continue                                    # boundary representative: try another
-        out[cls] = ClassEquation((v, w), hinges)
+        epents = [p for p in pents if v in p && w in p]
+        out[cls] = ClassEquation((v, w), hinges, epents)
     end
     for cls in wanted
         haskey(out, cls) || error("no interior representative for class $cls on this stack")
@@ -121,6 +123,14 @@ function class_residual(ce::ClassEquation, esq, pents, κ, conv; dust=0.0)
         a, b, c = esq(h[1], h[2]), esq(h[1], h[3]), esq(h[2], h[3])
         s = kind == :boost ? T(conv.s_boost) : T(conv.s_euclid)
         G += T(κ) * s * _dA_dslot(a, b, c, slot) * ε
+    end
+    # Λ volume term: −κ·lam·Σ_{σ∋rep} ∂V₄/∂l²_rep (lam = Λ = 3Ω_Λ in code units; zero default)
+    lam = get(conv, :lam, 0.0)
+    if !iszero(lam)
+        lκ = T(κ) * T(lam)
+        for p in ce.epents
+            G -= lκ * _dV4_dedge(p, esq, v, w)
+        end
     end
     return G
 end
@@ -161,7 +171,7 @@ end
 struct FLRWModel{T}
     N::Int; ns::Int
     dx::T; dτ::T; m::T; κ::T
-    conv::NamedTuple{(:s_boost, :s_euclid),Tuple{T,T}}
+    conv::NamedTuple{(:s_boost, :s_euclid, :lam),Tuple{T,T,T}}
     pents2::Vector{NTuple{5,Int}}                          # 2-slice solve stack
     eq_pole::ClassEquation
     eq_dg::NTuple{3,ClassEquation}
@@ -170,7 +180,8 @@ struct FLRWModel{T}
 end
 
 function FLRWModel(; N::Int=3, dx::Float64=1.0, dτ::Float64=1e-3, m::Float64,
-                   κ::Float64=1/(8π), s_boost::Float64=1.0, s_euclid::Float64=1.0)
+                   κ::Float64=1/(8π), s_boost::Float64=1.0, s_euclid::Float64=1.0,
+                   lam::Float64=0.0)
     ns = N^3
     pents2 = build_pentachora_stack(N, 2)
     want2 = [(:pole, 0, 0), (:dg, 0, 1), (:dg, 0, 2), (:dg, 0, 3)]
@@ -179,7 +190,7 @@ function FLRWModel(; N::Int=3, dx::Float64=1.0, dτ::Float64=1e-3, m::Float64,
     want3 = [(:sp, 1, 1), (:sp, 1, 2), (:sp, 1, 3)]
     ce3 = build_class_equations(pents3, ns, N, want3)
     return FLRWModel{Float64}(N, ns, dx, dτ, m, κ,
-        (s_boost=s_boost, s_euclid=s_euclid),
+        (s_boost=s_boost, s_euclid=s_euclid, lam=lam),
         pents2, ce2[(:pole, 0, 0)], (ce2[(:dg, 0, 1)], ce2[(:dg, 0, 2)], ce2[(:dg, 0, 3)]),
         pents3, (ce3[(:sp, 1, 1)], ce3[(:sp, 1, 2)], ce3[(:sp, 1, 3)]))
 end

@@ -12,9 +12,9 @@ for head-to-head validation against DISCO-DJ's nLPT displacements (pre-shell-cro
 - **Lattice**: periodic Kuhn 6-tetrahedra cubes (vertex/tet convention shared verbatim with
   DiscoDJNative's `sheet_deposit`, so the P(k) comparison isolates dynamics), swept into
   tent slabs of pentachora by an order-consistent staircase triangulation.
-- **Dust**: conserved vertex masses coupled only through proper time along tent poles,
-  `S = (1/8πG) Σ_h A_h ε_h − Σ_i m_i τ_i`; synchronous (constant per-slab) lapse.
-  (No cosmological-constant volume term yet — see "Queued" below.)
+- **Dust + Λ**: conserved vertex masses coupled only through proper time along tent poles,
+  `S = (1/8πG) Σ_h A_h ε_h − Σ_i m_i τ_i − (Λ/8πG) Σ_σ V₄(σ)`; synchronous (constant
+  per-slab) lapse. Λ enters via `conv.lam = 3Ω_Λ` / `march3d(...; ΩΛ)`.
 - **Marching scheme** (every ingredient forced by a measured failure — NOTES.md): Sorkin split
   (solve the dust-free diagonal + spatial equations; the dust-sourced pole equation is the
   *monitored* Hamiltonian constraint) + gauge pins (lapse via poles, shift via 3 axis diagonals
@@ -31,6 +31,7 @@ for head-to-head validation against DISCO-DJ's nLPT displacements (pre-shell-cro
 |---|---|
 | Geometry primitives (CM volumes, Lorentzian dihedrals/boosts, embeddings) | ✅ unit-tested vs analytic configs |
 | **Gate #1**: homogeneous lattice reproduces EdS a(t) | ✅ 5.6e-8 (2nd order in the step, 18× margin) |
+| **Gate #1b**: ΛCDM background (Λ volume term) | ✅ 9.5e-8 vs analytic sinh²ᐟ³ |
 | **Gate #2**: 1D plane wave vs Zel'dovich (full 3D engine, symmetry emergent) | ✅ err ≈ 0.7–0.9% of wave amplitude at 3 pts/λ, O((kdx)²)-convergent |
 | M3: resolution study | ✅ the ξ/dx law: march error ≈ 0.015–0.03·(displacement per cell) |
 | M4: Ψ + P(k) vs 1/2/3LPT, EdS + ΛCDM, a → 0.6 | ✅ engine+harness demonstrated (see caveats) |
@@ -45,8 +46,8 @@ with an end-to-end comparison pipeline — not yet a GR-vs-Newtonian discriminat
 
 ## Queued (the discrimination program)
 
-1. **Λ volume term** `S_Λ = −(Λ/8πG)·Σ V₄` — the ΛCDM march currently evolves pure dust from
-   ΛCDM initial data and drifts once Ω_Λ(a) ≳ 0.5% (constraint event at a ≈ 0.13; NOTES M4).
+1. ~~Λ volume term~~ **DONE** — `S_Λ` in the action, validated by gate #1b (9.5e-8) and a
+   Λ-dominated sanity march; see NOTES "The Λ volume term".
 2. **Raise ξ/dx into the validated 0.1–0.2 regime** — larger N at fixed box and/or a smaller
    box; this is where LPT orders separate and the GR question becomes answerable.
 3. **Scale**: the 64³ slab is ~2.9M unknowns. The measured cost structure says the path is CPU

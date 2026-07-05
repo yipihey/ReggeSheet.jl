@@ -369,6 +369,32 @@ CPU; and the linear algebra is already sub-dominant. The 64³ scaling path is CP
 (sweeps and assembly are embarrassingly parallel over hinges/equations) + LSMR + EdgeComplex
 memory engineering, not a GPU.
 
+## The Λ volume term (post-M6)
+
+`S_Λ = −(Λ/8πG)·Σ_σ V₄(σ)` — every edge equation gains `−κ·lam·Σ_{σ∋e} ∂V₄/∂l²_e` with
+`lam = Λ = 3Ω_Λ` (code units), carried in `conv.lam` (zero default ⇒ every pre-Λ path
+bit-identical; Λ=0 suite regression clean). Implementation: `EdgeComplex.pents_of_edge`
+incidence + `_dV4_dedge` (single-seed dual through the Cayley–Menger determinant — composes
+with outer ForwardDiff duals, so the per-equation Jacobian path gets ∂²V₄ for free); the
+per-hinge fast assembly gains a per-pent V₄-HESSIAN pass (10×10 ForwardDiff.hessian in jacT
+duals, chain-ruled into rows; pent edges lie inside the ring supports ⇒ sparsity pattern and
+CHOLMOD symbolic unchanged); `ClassEquation.epents` extends the homogeneous engine;
+`march3d(...; ΩΛ)`.
+
+Validation (all measured):
+- **GATE 1b — ΛCDM background**: flat Ω_m=0.31 matter+Λ march a=0.02→1, lattice-driven clock,
+  vs the analytic a(t) = (Ω_m/Ω_Λ)^{1/3}sinh^{2/3}(3√Ω_Λ t/2): **max|a/a_an−1| = 9.5e-08**
+  (1312 steps, lna_step=3e-3 — same order as gate #1's 5.6e-8), constraints 2.0e-14. This
+  validates the sign, the 3Ω_Λ normalization, AND the ∂V₄ derivatives at once (Newton uses
+  them all).
+- **Λ-dominated sanity** (Ω_Λ=0.99, a=0.5→1.2): 1.5e-6 at lna_step=3e-3 — the
+  finite-difference lapse grading lags under ACCELERATED expansion, inflating the (still
+  2nd-order) truncation ~100× per step vs EdS; documented, threshold 5e-6. (Exactly m=0 is
+  untestable through `flrw_step` — its Newton tolerance is scaled to the dust source.)
+- Suite 49/49; EdS gate and Zel'dovich gate byte-stable (Λ=0 default).
+
+M4 ΛCDM re-run with the term: [pending — expected to remove the a≈0.13 constraint event].
+
 ## Scaling to spec (M6): the 64³ cost model
 
 From the measured numbers (N=8: ~10–12 s/step at 16 threads; deficits 17 µs/hinge in
