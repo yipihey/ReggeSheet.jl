@@ -413,6 +413,15 @@ Next diagnostics: (i) amplitude-scaling test (ICs ×0.5: max-ham ∝ A²⁺ ⇒ 
 unchanged ⇒ structural), (ii) spatial localization of the ham residual at the event step,
 (iii) wd/wc sensitivity. The ΛCDM panel remains qualitative past a≈0.15.
 
+(i) MEASURED — **the event is STRUCTURAL**: ICs ×0.5 give max ham 1.69e-2 vs 2.24e-2 (ratio
+1.32; ∝A² would be 4.0), onset drifting slightly later (a≈0.18–0.21). Essentially
+amplitude-independent ⇒ scheme-level, tied to the Ω_m<1 BACKGROUND (dust mass 3.2× smaller,
+different clock law, pins/damping/dissipation interplay), not resolution physics — which also
+retro-explains why EdS's bump stops at 1.3e-3. Decisive follow-up launched: ZERO-amplitude
+ΛCDM through the full march3d (gate 1b already proves the homogeneous ΛCDM evolution exact
+through the CLASS solver; if the unperturbed full-scheme march still fires, the march-level
+background handling is isolated with no perturbations to confound it).
+
 ## Scaling to spec (M6): the 64³ cost model
 
 From the measured numbers (N=8: ~10–12 s/step at 16 threads; deficits 17 µs/hinge in
