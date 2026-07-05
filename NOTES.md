@@ -267,9 +267,11 @@ a = 0.02 → 0.6, snapshots a = {0.1, 0.2, 0.4, 0.6}; EdS 326 steps / 65 min, Λ
   cosmological-constant term — the lattice marches a pure-dust (open) universe from
   ΛCDM-consistent initial data, while the per-step seeds/KO targets and the comparison
   reference are ΛCDM; the event coincides with Ω_Λ(a) crossing the ~0.5% level (Ω_Λ(0.13) ≈
-  0.005 → 0.33 at a=0.6). The ΛCDM panel is therefore qualitative only. Fix queued: add the
-  volume term S_Λ = −(Λ/8πG)·Σ_pent V₄ (∂V₄²/∂l² is already in the Cayley–Menger machinery)
-  and re-run.
+  0.005 → 0.33 at a=0.6). The ΛCDM panel is therefore qualitative only.
+  [UPDATE: the Λ volume term was implemented and validated (gate #1b, 9.5e-8 — see "The Λ
+  volume term" below); it delays the event and improves the residuals/P-ratios but does NOT
+  remove it — the missing-Λ hypothesis was only part of the story; see that section for the
+  measured outcome and the remaining candidates.]
 
 **M4 verdict (honest)**: the deliverable demonstrated is the ENGINE + HARNESS — a stable,
 constraint-bounded, full-GR 3D Regge march of Gaussian-IC cold dust to a=0.6 with end-to-end
@@ -393,7 +395,18 @@ Validation (all measured):
   untestable through `flrw_step` — its Newton tolerance is scaled to the dust source.)
 - Suite 49/49; EdS gate and Zel'dovich gate byte-stable (Λ=0 default).
 
-M4 ΛCDM re-run with the term: [pending — expected to remove the a≈0.13 constraint event].
+**M4 ΛCDM re-run with the term (honest outcome — partial fix)**: the Λ term HELPED but did
+not remove the constraint event. Measured vs the Λ-less march: event onset DELAYED a≈0.12 →
+a≈0.15 (the clean low-ham stretch lengthened, 2.0e-4 through a≈0.145), Ψ-residual at a≥0.2
+down 10% (6.31e-4 → 5.71e-4), δa/a down (2.6e-4 → 2.2e-4), and the mid-k P_Regge/P_3LPT bins
+now center on unity (1.01–1.07, was 0.85–1.08). BUT a near-identical event still fires at
+a≈0.15–0.19 and saturates at the same ham ≈ 2.2e-2 — with Λ in the action it now happens at
+Ω_Λ(a) ≈ 0.9%, so the missing-Λ hypothesis explained only part of the drift. The residual
+cause is OPEN; candidates (unmeasured): (a) radiation in the seed clock — `hubble_E` includes
+Ω_r (~1.5% of matter at the a=0.02 seeding) while the lattice carries dust+Λ only; (b) the
+KO-dissipation linear-extrapolation targets interacting with ΛCDM growth curvature. EdS at
+matched ξ/dx (0.006 at a=0.4) shows no event, so it is not pure amplitude. Follow-up line of
+work; the ΛCDM panel remains qualitative past a≈0.15.
 
 ## Scaling to spec (M6): the 64³ cost model
 
