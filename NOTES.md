@@ -369,6 +369,29 @@ CPU; and the linear algebra is already sub-dominant. The 64³ scaling path is CP
 (sweeps and assembly are embarrassingly parallel over hinges/equations) + LSMR + EdgeComplex
 memory engineering, not a GPU.
 
+## Scaling to spec (M6): the 64³ cost model
+
+From the measured numbers (N=8: ~10–12 s/step at 16 threads; deficits 17 µs/hinge in
+Double64; hinges ≈ 88/vertex; unknowns 11/vertex; LSMR matvec ~20 µs at nu=1375):
+
+- **Steps**: dτ = 0.4·a·dx ⇒ steps ∝ 1/dx ⇒ ×8 from N=8 → N=64 at fixed box: ~2600 steps
+  to a = 0.6.
+- **Per step at N=64** (23M hinges, 2.9M unknowns, 128 threads): deficit sweep ≈ 3 s ×
+  ~6–10 sweeps (residuals + LM trials) + per-hinge D64-dual assembly ≈ 12 s × ~2 + LSMR
+  (nnz ≈ 6×10⁷, replaces CHOLMOD whose 3D fill walls) ≈ tens of seconds ⇒ **~1–1.5 min/step**.
+- **Total**: ~2–3 days at 128 threads, ~10–20 GB (ring_edges dominates; the eid Dict and
+  per-thread slot buffers need engineering at this scale).
+- **Practical rungs**: N=16 (~1.5 h) and N=32 (~1 day ÷ 8... ~8 h) come first and already
+  raise ξ/dx 2–4× toward the validated 0.1–0.2 regime; combining with a smaller box gets the
+  rest of the way.
+- **GPU**: measured NOT worthwhile — the two precision laws lock geometry + Jacobian duals to
+  Double64 (double-double on FP64-weak hardware loses to 128 CPU cores), and the deficit
+  kernel is structure-bound (D64/F64 only 1.4–1.7×).
+
+Queued physics before the discrimination run: the Λ volume term S_Λ = −(Λ/8πG)·Σ V₄ (the
+∂V₄²/∂l² derivatives are already in the Cayley–Menger machinery) — required for a valid ΛCDM
+march past a ≈ 0.13 (see M4).
+
 ## Gate status
 
 - **Gate #1 (EdS a(t) < 1e-6): PASSED.** Crossing-free convergence sweep (diagonals uniformly
