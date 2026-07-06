@@ -452,11 +452,21 @@ freezes the elevated violation as the plateau. Explains: the dx²/cfl onset law 
 scaling), detector independence, amplitude quasi-independence (background-dominated floor),
 ΛCDM-vs-EdS selectivity (Ω_m scales dust ⇒ ΛCDM tol 3.24× tighter at equal a ⇒ transition
 3.24× earlier), and the class solver's immunity (square system, tol relative to dust, no KO
-rows). TOLSCALE discriminator in flight (onset should move ∝ TOLSCALE; knobs
-REGGE_TOLSCALE / REGGE_LOWPROG[_MARGIN] added). Candidate fix if confirmed: FLOOR the
-marching tolerance at the scheme's consistency floor instead of letting it tighten
-indefinitely (equivalently: stop demanding hard-row precision the Bianchi identities cannot
-deliver without pushing the violation into the constraints).
+rows). ~~TOLSCALE discriminator~~ — ALSO NULL (TOLSCALE=0.3 gives onset/plateau identical to the
+digit). Every exit-criterion knob (detector, tol) leaves the trajectory unchanged ⇒ the
+phenomenon is intrinsic to the marching equilibrium, not to when the solver stops.
+
+**REFRAME (from the recorded N=8 zero-amp diag)**: there is NO sudden event — maxr and ham
+grow together SMOOTHLY and EXPONENTIALLY at ≈9%/step (5.2e-4 → 2.9e-3 over 21 steps around
+a≈0.09), then SATURATE: ham freezes at 4.410e-3 (to 4 digits, hundreds of steps) while mom
+drops 2.5× — the KO nonlinearity capping a **weakly unstable marching mode** (|λ| ≈ 1.09/step
+— same family as the |λ|≈3 parasitic root the KO dissipation was built to kill, NOTES #12,
+but much gentler and specific to Ω_m<1 configurations). The a_on ≈ 290·dx²/cfl law is the
+STABILITY BOUNDARY of the marching recurrence in (dx, cfl, a, Ω_m); the plateau is the
+saturation amplitude, and the perturbed-run excess (2.2e-2 vs 4.4e-3) is the mode riding on
+perturbations. Next discriminator: wd sweep (0.5 / 2.0) — strong response ⇒ KO-vs-parasitic
+balance (fix: retune wd or the dissipation stencil for Ω_m<1); no response ⇒ gauge/clock
+feedback (the lattice-clock/pins loop).
 
 ## Scaling to spec (M6): the 64³ cost model
 
