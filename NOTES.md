@@ -417,10 +417,17 @@ unchanged ⇒ structural), (ii) spatial localization of the ham residual at the 
 1.32; ∝A² would be 4.0), onset drifting slightly later (a≈0.18–0.21). Essentially
 amplitude-independent ⇒ scheme-level, tied to the Ω_m<1 BACKGROUND (dust mass 3.2× smaller,
 different clock law, pins/damping/dissipation interplay), not resolution physics — which also
-retro-explains why EdS's bump stops at 1.3e-3. Decisive follow-up launched: ZERO-amplitude
-ΛCDM through the full march3d (gate 1b already proves the homogeneous ΛCDM evolution exact
-through the CLASS solver; if the unperturbed full-scheme march still fires, the march-level
-background handling is isolated with no perturbations to confound it).
+retro-explains why EdS's bump stops at 1.3e-3.
+
+**ZERO-amplitude isolation — the event fires on a HOMOGENEOUS lattice**: the unperturbed ΛCDM
+march through the full `march3d` scheme jumps ham 2.3e-4 → 4.4e-3 at a ≈ 0.087–0.10 and
+plateaus to a=0.6 (max 4.41e-3). Gate 1b marches the IDENTICAL physics through the CLASS
+solver to 9.5e-8, so the cause is cornered in the MARCH-LEVEL machinery for Ω_m<1
+backgrounds: per-step seeding, gauge pins, constraint-damping soft rows, or KO-dissipation
+targets — with zero perturbation confounders. Amplitude ladder: zero 4.4e-3 → half 1.69e-2 →
+full 2.24e-2 (a structural core plus a weaker amplitude-dependent part). The zero-amplitude
+configuration needs no ICs, so the debug loop shrinks to core-only N=3 marches
+(minutes/iteration); N=3 reproduction + EdS-zero control in flight.
 
 ## Scaling to spec (M6): the 64³ cost model
 
