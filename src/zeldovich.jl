@@ -194,9 +194,12 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
         diss = Tuple{Int,Float64}[]
         for (e, (v, w)) in enumerate(ec.edges)
             ec.kind[e] === :sp2 || continue
-            e1 = ec.eid[(v - ns, w - ns)]
-            e0 = ec.eid[(v - 2ns, w - 2ns)]
-            push!(diss, (e, 2 * L[e1] - L[e0]))           # target = linear extrapolation
+            l1 = L[ec.eid[(v - ns, w - ns)]]
+            l0 = L[ec.eid[(v - 2ns, w - 2ns)]]
+            # geometric KO target (exact for per-step-geometric l² growth; see march3d.jl —
+            # the linear target's O(dlna²) bias feeds a weakly unstable Ω_m<1 marching mode)
+            tgt = (l0 > 1e-12 * l1 && l1 > 0) ? l1 * (l1 / l0) : 2l1 - l0
+            push!(diss, (e, tgt))
         end
         maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
                                  dust_pole=dust, tol=1e-5 * dust, verbose=false, pins=pins,

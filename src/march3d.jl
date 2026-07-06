@@ -98,7 +98,16 @@ function march3d(N::Int, dx::Float64, a0::Float64, a1::Float64,
         diss = Tuple{Int,Float64}[]
         for (e, (v, w)) in enumerate(ec.edges)
             ec.kind[e] === :sp2 || continue
-            push!(diss, (e, 2 * L[ec.eid[(v - ns, w - ns)]] - L[ec.eid[(v - 2ns, w - 2ns)]]))
+            l1 = L[ec.eid[(v - ns, w - ns)]]
+            l0 = L[ec.eid[(v - 2ns, w - 2ns)]]
+            # GEOMETRIC (log-linear) KO target: exact for per-step-geometric growth l² ∝ λⁿ —
+            # the homogeneous background to high order. The LINEAR target 2·l1−l0 carries an
+            # O(dlna²) truncation bias against the exponential background that the KO rows
+            # FREEZE IN; measured (zero-amp ΛCDM): a weakly unstable marching mode with growth
+            # ∝ 1/wd and saturation bias ∝ wd — stronger pulling toward a biased target slows
+            # the mode but locks a larger violation. Linear fallback near degeneracy.
+            tgt = (l0 > 1e-12 * l1 && l1 > 0) ? l1 * (l1 / l0) : 2l1 - l0
+            push!(diss, (e, tgt))
         end
         dust = m / (2dτB)
         # tol ∝ dust ∝ dx²/(cfl·a): it SHRINKS as the march advances, and the constraint-drift

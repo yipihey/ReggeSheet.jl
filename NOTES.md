@@ -464,9 +464,31 @@ drops 2.5× — the KO nonlinearity capping a **weakly unstable marching mode** 
 but much gentler and specific to Ω_m<1 configurations). The a_on ≈ 290·dx²/cfl law is the
 STABILITY BOUNDARY of the marching recurrence in (dx, cfl, a, Ω_m); the plateau is the
 saturation amplitude, and the perturbed-run excess (2.2e-2 vs 4.4e-3) is the mode riding on
-perturbations. Next discriminator: wd sweep (0.5 / 2.0) — strong response ⇒ KO-vs-parasitic
-balance (fix: retune wd or the dissipation stencil for Ω_m<1); no response ⇒ gauge/clock
-feedback (the lattice-clock/pins loop).
+perturbations.
+
+**wd sweep (the discriminator)**: growth rate ∝ 1/wd (0.156 / ~0.09 / 0.047 per step at
+wd = 0.5 / 1 / 2) — the KO-vs-mode balance IS the mechanism — but the SATURATION level RISES
+with wd (5.9e-3 / 6.7e-3 / 3.96e-2): pulling harder toward a BIASED target slows the mode
+while freezing a larger violation. Diagnosis: the LINEAR extrapolation target 2·sp1−sp0
+carries an O(dlna²) truncation bias against the exponentially growing background (l² ∝ a²),
+and that bias sources/feeds the weakly unstable Ω_m<1 mode.
+
+**FIX — the GEOMETRIC (log-linear) KO target** `target = sp1²/sp0` (exact for per-step-
+geometric growth, i.e. the homogeneous background to high order; linear fallback near
+degeneracy; march3d + march_zeldovich). Validated (all measured):
+- N=5 zero-amp ΛCDM: max ham 6.708e-3 → **1.554e-5 (430×), decaying**, no onset; the march
+  also reaches a=0.25 in 193 vs 391 steps (the biased target was DRAGGING the lattice clock)
+  and solves get cheaper (524 s vs 1706 s).
+- N=8 zero-amp ΛCDM (the original event's scale): max ham 4.41e-3 → **4.458e-6 (989×),
+  decaying**; 528 vs 665 steps.
+- Suite 49/49 — gate 2 err_x 1.359e-3 (+1.7%, well within threshold), err_perp IMPROVED
+  (1.60e-4 vs 1.83e-4); gates 1/1b byte-stable; FLRW recovery 4.982e-07 exact; march bench
+  78 s (down from 105.6 s — the unbiased target reduces solver work).
+The full M4 comparison (both cosmologies) re-marched on the new target for the definitive
+figures. Investigation CLOSED: the "ΛCDM constraint event" was the linear-KO-target bias
+feeding a weakly unstable Ω_m<1 marching mode; every intermediate null (radiation clock,
+amplitude, solver path, stall detector, tolerance) is retained above as the map of the
+hypothesis space.
 
 ## Scaling to spec (M6): the 64³ cost model
 
