@@ -506,8 +506,26 @@ only) → de-trended (homogeneous + perturbed).
 
 De-trended validation (measured): (A) perturbed EdS N=5 80-step Zel'dovich (the regressing
 case) max bianchi 2.12e-5 STABLE; (B) homogeneous ΛCDM N=5 zero-amp max ham 1.554e-5 CLEAN
-(keeps the full homogeneous win). The definitive perturbed-N=8 proof is the M4 EdS full-amp
-leg returning to ~6e-4 (vs geometric's 8e-2).
+(keeps the full homogeneous win).
+
+**DEFINITIVE M4 EdS full-amp (N=8, partial — the box SIGTERM-killed the run at step 160):
+TWO modes, one fixed, one residual.** ham is FLAT at ~3.3e-5 from a=0.027 out to a≈0.154 (step
+120) — **~20× cleaner than the original linear target's EdS (which drifted to 6.66e-4)** and
+1000× better than geometric (8e-2). This confirms the homogeneous-mode fix carries into the
+perturbed regime AT LOW a. BUT a SECOND, perturbation-driven mode then develops at a≈0.17:
+ham 2.4e-5 (a=0.154) → 4.0e-5 → 1.4e-4 → 4.0e-4 → 1.12e-3 (a=0.226) at ~9%/step before the
+kill. This mode is DISTINCT from the homogeneous one (which the de-trended target kills
+exactly): it lives in the PERTURBATION sector and the KO-target work does not reach it.
+
+**Status of the marching-stability program**: the homogeneous Ω_m<1 instability is SOLVED
+(de-trended target, kept — it is strictly the best target: exact-homogeneous + linear-
+perturbed, cleanest early-time by 20×, and faster: bench 105.6→69.6s). A residual
+PERTURBATION-sector mode remains, onset a≈0.17 at N=8/250Mpc/h. Consequences for M4: the
+comparison is cleanest at the low-a snapshots (a=0.1 sits in the 3.3e-5 flat regime, the best
+it has ever been); a=0.4/0.6 sit in the developed-mode regime. The perturbation mode is
+DEFERRED (documented future work) — a distinct hunt from the (closed) homogeneous one; the
+box's SIGTERM-sweeping of multi-hour jobs also argues for a shorter-run diagnostic strategy
+(N=5/N=6 perturbed, fewer steps) before the next full N=8.
 
 ## Scaling to spec (M6): the 64³ cost model
 
