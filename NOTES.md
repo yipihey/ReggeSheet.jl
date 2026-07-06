@@ -484,11 +484,30 @@ degeneracy; march3d + march_zeldovich). Validated (all measured):
 - Suite 49/49 — gate 2 err_x 1.359e-3 (+1.7%, well within threshold), err_perp IMPROVED
   (1.60e-4 vs 1.83e-4); gates 1/1b byte-stable; FLRW recovery 4.982e-07 exact; march bench
   78 s (down from 105.6 s — the unbiased target reduces solver work).
-The full M4 comparison (both cosmologies) re-marched on the new target for the definitive
-figures. Investigation CLOSED: the "ΛCDM constraint event" was the linear-KO-target bias
-feeding a weakly unstable Ω_m<1 marching mode; every intermediate null (radiation clock,
-amplitude, solver path, stall detector, tolerance) is retained above as the map of the
-hypothesis space.
+**REGRESSION (the definitive full-amplitude M4 exposed it)**: the geometric target `sp1²/sp0`
+is exact only for PURE geometric growth. A perturbation makes l² non-geometric, and the
+geometric extrapolation OVERSHOOTS the perturbation growth multiplicatively — compounding over
+hundreds of steps. Measured: EdS FULL-amplitude ham 6.66e-4 (old linear target) → 8.04e-2
+(120× WORSE); ΛCDM still events (now a≈0.07). The zero-amplitude success was misleading
+(homogeneous edges ARE geometric). Do not use `sp1²/sp0`.
+
+**CORRECTED FIX — the DE-TRENDED (comoving-linear) target** `gr·(2·l1 − l0·gr_prev)` where
+gr = (a_next/a_cur)², gr_prev = (a_cur/a_prev)²: extrapolate the COMOVING squared length
+l²/a² linearly, then rescale to the new epoch. Exact for the homogeneous background (comoving
+length is constant ⇒ ZERO dissipation bias, strictly better than geometric's approximate
+exactness under varying Hdτ) AND reduces to the ORIGINAL stable linear extrapolation for
+perturbations (removing only the a²-background bias that fed the homogeneous mode). Best of
+both; validated below.
+
+Investigation status: the mechanism (linear-KO-target a²-bias → weakly unstable Ω_m<1 mode)
+stands; every intermediate null (radiation clock, amplitude, solver path, stall detector,
+tolerance) is retained above as the hypothesis-space map. The FIX went geometric (homogeneous
+only) → de-trended (homogeneous + perturbed).
+
+De-trended validation (measured): (A) perturbed EdS N=5 80-step Zel'dovich (the regressing
+case) max bianchi 2.12e-5 STABLE; (B) homogeneous ΛCDM N=5 zero-amp max ham 1.554e-5 CLEAN
+(keeps the full homogeneous win). The definitive perturbed-N=8 proof is the M4 EdS full-amp
+leg returning to ~6e-4 (vs geometric's 8e-2).
 
 ## Scaling to spec (M6): the 64³ cost model
 

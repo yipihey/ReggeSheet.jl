@@ -165,6 +165,7 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
 
     tcur = t0 * a1^1.5                                    # cosmic time at slice 1
     acur = a1
+    a_prev = a0                                           # slice-0 scale (de-trended KO target)
     out = NamedTuple[]
     for step in 1:n_steps
         H = acur^(-1.5)
@@ -191,15 +192,15 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
         end
         # ---- solve (Sorkin split + KO dissipation toward the linear time-extrapolation) ----
         dust = m / (2dτB)
+        # de-trended (comoving-linear) KO target gr·(2·l1 − l0·gr_prev): exact for the
+        # homogeneous background, = linear extrapolation for perturbations (see march3d.jl)
+        gr_prev = (acur / a_prev)^2
         diss = Tuple{Int,Float64}[]
         for (e, (v, w)) in enumerate(ec.edges)
             ec.kind[e] === :sp2 || continue
             l1 = L[ec.eid[(v - ns, w - ns)]]
             l0 = L[ec.eid[(v - 2ns, w - 2ns)]]
-            # geometric KO target (exact for per-step-geometric l² growth; see march3d.jl —
-            # the linear target's O(dlna²) bias feeds a weakly unstable Ω_m<1 marching mode)
-            tgt = (l0 > 1e-12 * l1 && l1 > 0) ? l1 * (l1 / l0) : 2l1 - l0
-            push!(diss, (e, tgt))
+            push!(diss, (e, gr * (2l1 - l0 * gr_prev)))
         end
         maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=(s_boost=1.0, s_euclid=1.0),
                                  dust_pole=dust, tol=1e-5 * dust, verbose=false, pins=pins,
@@ -232,6 +233,7 @@ function march_zeldovich(N::Int, dx::Float64, a_start::Float64, n_steps::Int;
         end
         xprof ./= max.(xcnt, 1)
         tcur += dτB
+        a_prev = acur                                     # window shift: next slice-0 = this s-1
         acur = a2_an                                      # clock bookkeeping only (analytic time)
         push!(out, (t=tcur, a=acur, err_x=err_x, err_perp=err_perp, maxr=maxr, bianchi=bianchi,
                     xprof=xprof))
