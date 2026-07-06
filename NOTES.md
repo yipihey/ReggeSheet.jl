@@ -434,11 +434,29 @@ sparse-forced — NOT a solver-path artifact); N=5-sparse fires (onset a≈0.184
 6.7e-3); N=8 fires (onset a≈0.087, plateau 4.4e-3). On a homogeneous lattice N is physically
 irrelevant — but the per-step e-fold size dlna = lna_cfl·dx·a·E(a) at each onset is SHARP:
 N=8 → 7.9e-3, N=5 → 8.7e-3, and N=3's dlna never drops below 8e-3 in the marched range
-(quiet ✓). **Emerging law: the event fires when the shrinking CFL step crosses
-dlna ≈ 8×10⁻³ from above.** (The class solver at CONSTANT dlna=3e-3 — below threshold — is
-exact to 9.5e-8, so the scale belongs to march3d's per-step machinery, not the equations.)
-Discriminators in flight: N=4 predicts onset a≈0.35; N=5 with lna_cfl=0.2 predicts onset
-JUMPING EARLIER to a≈0.054 (dlna halves ⇒ crossing moves to smaller a).
+(quiet ✓). ~~Emerging law: dlna ≈ 8e-3~~ — FALSIFIED by the cfl=0.2 discriminator (predicted onset
+a≈0.054; measured QUIET through 0.3). The collapse that survives all five points is
+**a_onset ≈ 290·dx²/cfl** (N=8: 322, N=5: 264, N=4: 273 with onset dlna 7.9/8.7/8.8e-3 at
+cfl=0.4; N=3 and N=5-cfl0.2 predicted beyond range ✓ quiet) — and dx²/(cfl·a) is EXACTLY the
+scaling of the march tolerance tol = 1e-5·dust = 1e-5·m/(2dτ).
+
+**Floor-stall detector A/B: NULL** — detector ON vs OFF (REGGE_LOWPROG=99) give identical
+events (6.708e-3 vs 6.704e-3, same onset). The stall quality is not guard-determined; the
+solver genuinely exhausts there.
+
+**MECHANISM (consistent with everything measured)**: tol ∝ dust ∝ dx²/(cfl·a) TIGHTENS as the
+march advances; once it drops below the scheme's Bianchi/KO consistency floor, further
+hard-row minimization TRADES OFF against the soft constraint rows in the least-squares
+equilibrium — hard residuals ↓, the monitored Hamiltonian ↑ — and the window/KO machinery
+freezes the elevated violation as the plateau. Explains: the dx²/cfl onset law (pure tol
+scaling), detector independence, amplitude quasi-independence (background-dominated floor),
+ΛCDM-vs-EdS selectivity (Ω_m scales dust ⇒ ΛCDM tol 3.24× tighter at equal a ⇒ transition
+3.24× earlier), and the class solver's immunity (square system, tol relative to dust, no KO
+rows). TOLSCALE discriminator in flight (onset should move ∝ TOLSCALE; knobs
+REGGE_TOLSCALE / REGGE_LOWPROG[_MARGIN] added). Candidate fix if confirmed: FLOOR the
+marching tolerance at the scheme's consistency floor instead of letting it tighten
+indefinitely (equivalently: stop demanding hard-row precision the Bianchi identities cannot
+deliver without pushing the violation into the constraints).
 
 ## Scaling to spec (M6): the 64³ cost model
 

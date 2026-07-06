@@ -251,6 +251,12 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
     r = zeros(D, ne)
     # section timers (REGGE_TIMING=1): where does the wall-clock go?
     timing = get(ENV, "REGGE_TIMING", "0") == "1"
+    # diagnostic overrides for the FLOOR-STALL detector (see the acceptance section): count of
+    # consecutive low-progress accepted iterations and the progress margin. Defaults reproduce
+    # the tuned behavior; REGGE_LOWPROG=99 effectively disables the detector (A/B knob for the
+    # dlna-threshold constraint-drift investigation).
+    lowprog_n = parse(Int, get(ENV, "REGGE_LOWPROG", "3"))
+    lowprog_m = parse(Float64, get(ENV, "REGGE_LOWPROG_MARGIN", "0.98"))
     t_def = 0.0; t_res = 0.0; t_asm = 0.0; t_fac = 0.0; t_trial = 0.0
     n_it = 0; n_asm = 0; n_trials = 0
     # dense Double64 normal equations up to ~N=4; beyond that assemble a Float64 sparse J and
@@ -644,9 +650,9 @@ function solve_edges!(L::Vector{Float64}, ec::EdgeComplex;
             # pure floor-polish per solve). Three CONSECUTIVE low-progress accepted iterations
             # ⇒ converged-at-floor; isolated ∞-norm plateaus (the tol-converging cold-start
             # pattern) reset the counter and survive.
-            if rt_acc > 0.98 * obj
+            if rt_acc > lowprog_m * obj
                 lowprog += 1
-                lowprog >= 3 && break
+                lowprog >= lowprog_n && break
             else
                 lowprog = 0
             end

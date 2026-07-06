@@ -101,8 +101,12 @@ function march3d(N::Int, dx::Float64, a0::Float64, a1::Float64,
             push!(diss, (e, 2 * L[ec.eid[(v - ns, w - ns)]] - L[ec.eid[(v - 2ns, w - 2ns)]]))
         end
         dust = m / (2dτB)
+        # tol ∝ dust ∝ dx²/(cfl·a): it SHRINKS as the march advances, and the constraint-drift
+        # onset tracks tol(a) crossing the scheme's floor (measured a_on ≈ 290·dx²/cfl —
+        # clean-exit → stall-exit transition). REGGE_TOLSCALE (default 1) is the A/B knob.
+        tolscale = parse(Float64, get(ENV, "REGGE_TOLSCALE", "1.0"))
         maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=conv,
-                                 dust_pole=dust, tol=1e-5 * dust, pins=pins,
+                                 dust_pole=dust, tol=1e-5 * dust * tolscale, pins=pins,
                                  diss=diss, wd=wd, sparse_threshold=sparse_threshold)
         # lattice's own new scale: mean of sp2/sp1 ratios (the engine drives its own clock)
         sr = 0.0; nr = 0
