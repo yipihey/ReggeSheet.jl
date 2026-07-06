@@ -678,7 +678,8 @@ the approximate discrete Bianchi identities amplify the inconsistency ×1e3/step
 function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
                      κ, conv, dust_pole, tol::Float64, pins::Vector{Int},
                      maxit::Int=25, verbose::Bool=false, wc::Float64=1.0,
-                     diss::Vector{Tuple{Int,Float64}}=Tuple{Int,Float64}[], wd::Float64=0.0)
+                     diss::Vector{Tuple{Int,Float64}}=Tuple{Int,Float64}[], wd::Float64=0.0,
+                     sparse_threshold::Int=800)
     pinset = Set(pins)
     U = [e for e in eachindex(ec.edges)
          if (ec.kind[e] === :dgB && !(e in pinset)) || ec.kind[e] === :sp2]
@@ -691,7 +692,8 @@ function solve_slab!(L::Vector{Float64}, ec::EdgeComplex;
     dust_of = e -> ec.kind[e] === :poleB ? dust_pole : 0.0
     maxr = solve_edges!(L, ec; unknowns=U, equations=E, dust_of=dust_of,
                         κ=κ, conv=conv, tol=tol, maxit=maxit, verbose=verbose,
-                        soft_equations=S, soft_weight=wc, reg_rows=diss, wreg=wd)
+                        soft_equations=S, soft_weight=wc, reg_rows=diss, wreg=wd,
+                        sparse_threshold=sparse_threshold)
     # monitored constraints: Hamiltonian (poleB eqs, WITH dust) + momentum (pinned dgB eqs)
     LD = Double64.(L)
     ε = zeros(Double64, length(ec.hinges)); kc = fill(:euclid, length(ec.hinges))

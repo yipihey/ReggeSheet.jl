@@ -22,7 +22,7 @@ function march3d(N::Int, dx::Float64, a0::Float64, a1::Float64,
                  Ψ0::Matrix{Float64}, Ψ1::Matrix{Float64};
                  E_of_a, Ωm::Float64=1.0, ΩΛ::Float64=0.0, snapshots::Vector{Float64},
                  lna_cfl::Float64=0.4, wd::Float64=1.0, n_max::Int=100_000,
-                 verbose::Bool=false)
+                 verbose::Bool=false, sparse_threshold::Int=800)
     # Λ enters the ACTION via conv.lam = Λ = 3Ω_Λ (code units) — without it a ΛCDM march is a
     # pure-dust universe fed ΛCDM seeds and drifts once Ω_Λ(a) ≳ 0.5% (NOTES M4, a ≈ 0.13).
     conv = (s_boost=1.0, s_euclid=1.0, lam=3ΩΛ)
@@ -103,7 +103,7 @@ function march3d(N::Int, dx::Float64, a0::Float64, a1::Float64,
         dust = m / (2dτB)
         maxr, cons = solve_slab!(L, ec; κ=1 / (8π), conv=conv,
                                  dust_pole=dust, tol=1e-5 * dust, pins=pins,
-                                 diss=diss, wd=wd)
+                                 diss=diss, wd=wd, sparse_threshold=sparse_threshold)
         # lattice's own new scale: mean of sp2/sp1 ratios (the engine drives its own clock)
         sr = 0.0; nr = 0
         for (e, (v, w)) in enumerate(ec.edges)

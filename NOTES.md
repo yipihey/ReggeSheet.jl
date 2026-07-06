@@ -427,7 +427,18 @@ backgrounds: per-step seeding, gauge pins, constraint-damping soft rows, or KO-d
 targets — with zero perturbation confounders. Amplitude ladder: zero 4.4e-3 → half 1.69e-2 →
 full 2.24e-2 (a structural core plus a weaker amplitude-dependent part). The zero-amplitude
 configuration needs no ICs, so the debug loop shrinks to core-only N=3 marches
-(minutes/iteration); N=3 reproduction + EdS-zero control in flight.
+(minutes/iteration).
+
+**Hunt (zero-amp ΛCDM, all measured)**: N=3 quiet on BOTH solver paths (dense and
+sparse-forced — NOT a solver-path artifact); N=5-sparse fires (onset a≈0.184, plateau
+6.7e-3); N=8 fires (onset a≈0.087, plateau 4.4e-3). On a homogeneous lattice N is physically
+irrelevant — but the per-step e-fold size dlna = lna_cfl·dx·a·E(a) at each onset is SHARP:
+N=8 → 7.9e-3, N=5 → 8.7e-3, and N=3's dlna never drops below 8e-3 in the marched range
+(quiet ✓). **Emerging law: the event fires when the shrinking CFL step crosses
+dlna ≈ 8×10⁻³ from above.** (The class solver at CONSTANT dlna=3e-3 — below threshold — is
+exact to 9.5e-8, so the scale belongs to march3d's per-step machinery, not the equations.)
+Discriminators in flight: N=4 predicts onset a≈0.35; N=5 with lna_cfl=0.2 predicts onset
+JUMPING EARLIER to a≈0.054 (dlna halves ⇒ crossing moves to smaller a).
 
 ## Scaling to spec (M6): the 64³ cost model
 
